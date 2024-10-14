@@ -9,6 +9,9 @@ import torch.nn.functional as F
 class SincNetConfig:
     """The default values are adapted from Bravo Sanchez et al. (2021) tuned for NIPS4Bplus"""
 
+    # Data
+    batch_size: int = 128
+
     # Windowing parameters
     sample_rate: int = 44100
     cw_len: int = 18 # window length in ms
