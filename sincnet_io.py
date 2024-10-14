@@ -7,6 +7,9 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 import librosa
 import soundfile as sf
+import random
+import math
+from collections import Counter
 
 
 class AudioDataset(Dataset):
@@ -61,12 +64,39 @@ class AudioDataset(Dataset):
         return waveform, label
 
 def create_dataloaders(root_dir: str, batch_size: int = 32, 
-                       train_ratio: float = 0.8, sample_rate: int = 44100, 
-                       cw_len: int = 10, augment_factor: float = 0.1):
+                       train_ratio: float = 0.75, sample_rate: int = 44100, 
+                       cw_len: int = 10, augment_factor: float = 0.1,
+                       random_state: int = 1313):
     dataset = AudioDataset(root_dir, sample_rate, cw_len, augment_factor)
-    train_size = int(train_ratio * len(dataset))
-    test_size = len(dataset) - train_size
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
+    
+    if random_state is not None:
+        random.seed(random_state)
+    
+    labels = [dataset.labels[i] for i in range(len(dataset))]
+    label_counts = Counter(labels)
+    
+    train_indices, test_indices = [], []
+    for label, count in label_counts.items():
+        label_indices = [i for i, l in enumerate(labels) if l == label]
+        random.shuffle(label_indices)
+        
+        n_train = max(1, math.floor(train_ratio * count))  # Ensure at least 1 sample in train
+        n_test = count - n_train
+        
+        if n_test == 0:  # If only 1 sample, put it in both train and test
+            train_indices.extend(label_indices)
+            test_indices.extend(label_indices)
+        else:
+            train_indices.extend(label_indices[:n_train])
+            test_indices.extend(label_indices[n_train:])
+    
+    # Shuffle the train and test indices
+    random.shuffle(train_indices)
+    random.shuffle(test_indices)
+
+    # Create Subset datasets
+    train_dataset = torch.utils.data.Subset(dataset, train_indices)
+    test_dataset = torch.utils.data.Subset(dataset, test_indices)
 
     # Use RandomSampler for training to ensure random batch creation
     train_sampler = torch.utils.data.RandomSampler(train_dataset)

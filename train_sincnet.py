@@ -38,13 +38,8 @@ print(f"Number of validation samples: {len(val_loader.dataset)}")
 print(f"Number of batches per epoch: {len(train_loader)}")
 
 # Print the number of parameters in the model
-total_params = sum(p.numel() for p in model.parameters())
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"Total number of parameters in the model: {total_params:,}")
-print(f"Number of trainable parameters: {trainable_params:,}")
-print(f"Percentage of trainable parameters: {trainable_params/total_params*100:.2f}%")
-
-# import sys; sys.exit(0)
+print(f"Total number of trainable parameters in the model: {trainable_params:,}")
 
 criterion = nn.CrossEntropyLoss() # same as NLLLoss originally used in SincNet, but more efficient and stable
 optimizer = optim.AdamW(model.parameters())#, lr=3e-4)
