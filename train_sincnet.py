@@ -195,11 +195,8 @@ for epoch in range(num_epochs):
             frame_logits = torch.zeros(num_frames, cfg.num_classes).float().to(device)
 
             # Split signal into overlapping frames
-            for frame_idx in range(num_frames):
-                start_sample = frame_idx * chunk_shift
-                end_sample = start_sample + chunk_length
-                frame = signal[start_sample:end_sample] if end_sample <= signal.shape[0] else F.pad(signal[start_sample:], (0, chunk_length - (signal.shape[0] - start_sample)))
-                frame_signals[frame_idx, 0] = frame
+            frame_indices = torch.arange(0, num_frames).unsqueeze(1) * chunk_shift + torch.arange(chunk_length)
+            frame_signals = signal[frame_indices].unsqueeze(1)
 
             # Process frames in batches
             for batch_start in range(0, num_frames, cfg.batch_size):
