@@ -47,7 +47,8 @@ print(f"Percentage of trainable parameters: {trainable_params/total_params*100:.
 # import sys; sys.exit(0)
 
 criterion = nn.CrossEntropyLoss() # same as NLLLoss originally used in SincNet, but more efficient and stable
-optimizer = optim.AdamW(model.parameters(), lr=3e-4)
+# optimizer = optim.AdamW(model.parameters(), lr=3e-4)
+optimizer = optim.RMSprop(model.parameters(), lr=0.001, alpha=0.95, eps=1e-8)
 
 num_epochs = 200
 log_file = os.path.join(os.path.dirname(__file__), "trainlog.txt")
