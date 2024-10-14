@@ -21,7 +21,7 @@ class SincNetConfig:
         (60, 5, 1),
     )
 
-    # conv_layers_batchnorm: bool = False
+    conv_layers_batchnorm: bool = True
 
     # number of neurons
     fc_layers: List[int] = (
@@ -54,14 +54,14 @@ class SincNetModel(nn.Module):
             if i == 0:
                 self.conv_layers.append(nn.Sequential(
                     SincConv(out_channels=out_channels, sample_rate=cfg.sample_rate, kernel_size=kernel_size),
-                    ChannelwiseLayerNorm(out_channels),
+                    ChannelwiseLayerNorm(out_channels) if not cfg.conv_layers_batchnorm else nn.BatchNorm1d(out_channels),
                     nn.LeakyReLU()
                 ))
             else:
                 in_channels = cfg.conv_layers[i-1][0]
                 self.conv_layers.append(nn.Sequential(
                     nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride),
-                    ChannelwiseLayerNorm(out_channels),
+                    ChannelwiseLayerNorm(out_channels) if not cfg.conv_layers_batchnorm else nn.BatchNorm1d(out_channels),
                     nn.LeakyReLU()
                 ))
 
