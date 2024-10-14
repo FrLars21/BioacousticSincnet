@@ -20,7 +20,10 @@ class SincNetConfig:
         (60, 5, 1),
         (60, 5, 1),
     )
+    # set any of these < 1 to disable max pooling for the conv layer
+    conv_max_pool_len: Tuple[int] = (5, 5, 5)
 
+    # if batchnorm is not used, layernorm is applied instead
     conv_layers_batchnorm: bool = True
 
     # number of neurons
@@ -54,6 +57,8 @@ class SincNetModel(nn.Module):
             if i == 0:
                 self.conv_layers.append(nn.Sequential(
                     SincConv(out_channels=out_channels, sample_rate=cfg.sample_rate, kernel_size=kernel_size),
+                    # todo: if using layernorm instead of batchnom, maxpool should be applied to the torch.abs of the sinc layer.
+                    nn.MaxPool1d(cfg.conv_max_pool_len[i]) if cfg.conv_max_pool_len[i] > 1 else nn.Identity(),
                     ChannelwiseLayerNorm(out_channels) if not cfg.conv_layers_batchnorm else nn.BatchNorm1d(out_channels),
                     nn.LeakyReLU()
                 ))
@@ -61,6 +66,7 @@ class SincNetModel(nn.Module):
                 in_channels = cfg.conv_layers[i-1][0]
                 self.conv_layers.append(nn.Sequential(
                     nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride),
+                    nn.MaxPool1d(cfg.conv_max_pool_len[i]) if cfg.conv_max_pool_len[i] > 1 else nn.Identity(),
                     ChannelwiseLayerNorm(out_channels) if not cfg.conv_layers_batchnorm else nn.BatchNorm1d(out_channels),
                     nn.LeakyReLU()
                 ))
@@ -77,7 +83,7 @@ class SincNetModel(nn.Module):
 
 
     def calculate_conv_output_size(self):
-        """Helper function to calculate the output size of the last conv layer, accounting for padding"""
+        """Helper function to calculate the output size of the last conv layer, accounting for padding and max pooling"""
         # Start with the initial input size in samples
         size = self.cfg.cw_len * self.cfg.sample_rate // 1000
         channels = 1
@@ -91,7 +97,13 @@ class SincNetModel(nn.Module):
                 # Assuming no padding for standard Conv1d layers; modify if padding is added
                 padding = 0
 
+            # Calculate size after convolution
             size = (size + 2 * padding - kernel_size) // stride + 1
+
+            # Apply max pooling if specified
+            if self.cfg.conv_max_pool_len[i] > 1:
+                size = size // self.cfg.conv_max_pool_len[i]
+
             channels = out_channels
 
         return channels * size

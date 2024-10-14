@@ -26,10 +26,10 @@ model = SincNetModel(cfg).to(device)
 # Set up data loaders
 train_loader, val_loader = create_dataloaders(
     root_dir="nips4bplus",
-    batch_size=256,
+    batch_size=2,
     sample_rate=cfg.sample_rate,
     cw_len=cfg.cw_len,
-    augment_factor=0.1
+    augment_factor=0.2
 )
 
 # Print dataset sizes and number of batches
@@ -37,11 +37,12 @@ print(f"Number of training samples: {len(train_loader.dataset)}")
 print(f"Number of validation samples: {len(val_loader.dataset)}")
 print(f"Number of batches per epoch: {len(train_loader)}")
 
-# # Print the number of parameters in the model
-# total_params = sum(p.numel() for p in model.parameters())
-# trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-# print(f"Total number of trainable parameters in the model: {trainable_params:,}")
-
+# Print the number of parameters in the model
+total_params = sum(p.numel() for p in model.parameters())
+trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"Total number of parameters in the model: {total_params:,}")
+print(f"Number of trainable parameters: {trainable_params:,}")
+print(f"Percentage of trainable parameters: {trainable_params/total_params*100:.2f}%")
 
 # import sys; sys.exit(0)
 
