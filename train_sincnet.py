@@ -125,9 +125,10 @@ batches_per_epoch = 2
 for epoch in range(num_epochs):
     model.train()
     train_loss = 0
+    
     epoch_start_time = time.time()
 
-    # 80 batches per epoch
+    # Training loop
     for batch_idx in range(batches_per_epoch):
         x, y = train_loader.next_batch()
         x, y = x.to(device), y.to(device)
@@ -142,10 +143,15 @@ for epoch in range(num_epochs):
         with open(log_file, "a") as f:
             f.write(f"{epoch * batches_per_epoch + batch_idx} train {loss.item():.4f}\n")
     
+    if torch.cuda.is_available(): torch.cuda.synchronize()
+    train_end_time = time.time()
+    
     avg_train_loss = train_loss / batches_per_epoch
     
     # Set model to evaluation mode
     model.eval()
+
+    eval_start_time = time.time()
 
     with torch.no_grad():
         total_loss = 0
@@ -225,16 +231,24 @@ for epoch in range(num_epochs):
         avg_frame_error = total_frame_error / num_test_samples
         avg_sentence_error = total_sentence_error / num_test_samples
 
-        epoch_end_time = time.time()
-        epoch_duration = epoch_end_time - epoch_start_time
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        eval_end_time = time.time()
+
+        if torch.cuda.is_available(): torch.cuda.synchronize()
+        eval_duration = eval_end_time - eval_start_time
+        train_duration = train_end_time - epoch_start_time
+        epoch_duration = eval_end_time - epoch_start_time
 
         print(f"Epoch {epoch+1}/{num_epochs} | "
-            f"Train Loss: {avg_train_loss:.4f} | "
-            f"Val Loss: {avg_loss:.4f} | "
-            f"Frame Error: {avg_frame_error:.4f} | "
-            f"Sentence Error: {avg_sentence_error:.4f} | "
-            f"Time: {epoch_duration:.2f} seconds")
+              f"Train Loss: {avg_train_loss:.4f} | "
+              f"Val Loss: {avg_loss:.4f} | "
+              f"Frame Error: {avg_frame_error:.4f} | "
+              f"Sentence Error: {avg_sentence_error:.4f} | "
+              f"Train Time: {train_duration:.2f} seconds | "
+              f"Eval Time: {eval_duration:.2f} seconds | "
+              f"Total Time: {epoch_duration:.2f} seconds")
             
         # log epoch metrics
         with open(log_file, "a") as f:
-            f.write(f"{(epoch + 1) * batches_per_epoch} val {avg_loss:.4f}")
+            f.write(f"{(epoch + 1) * batches_per_epoch} val {avg_loss:.4f}\n")
