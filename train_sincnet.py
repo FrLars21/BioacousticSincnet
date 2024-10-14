@@ -132,8 +132,8 @@ with open(log_file, "w") as f: # open for writing to clear the file
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters())
 
-num_epochs = 200
-batches_per_epoch = 2
+num_epochs = cfg.num_epochs
+batches_per_epoch = cfg.batches_per_epoch
 
 for epoch in range(num_epochs):
     model.train()
@@ -155,9 +155,6 @@ for epoch in range(num_epochs):
         # log train loss per step
         with open(log_file, "a") as f:
             f.write(f"{epoch * batches_per_epoch + batch_idx} train {loss.item():.4f}\n")
-    
-    if torch.cuda.is_available(): torch.cuda.synchronize()
-    train_end_time = time.time()
     
     avg_train_loss = train_loss / batches_per_epoch
     
@@ -181,22 +178,15 @@ for epoch in range(num_epochs):
         val_loss /= num_val_batches
         val_frame_accuracy /= num_val_batches
 
-        if torch.cuda.is_available():
-            torch.cuda.synchronize()
-        eval_end_time = time.time()
-
         if torch.cuda.is_available(): torch.cuda.synchronize()
-        eval_duration = eval_end_time - train_end_time
-        train_duration = train_end_time - epoch_start_time
-        epoch_duration = eval_end_time - epoch_start_time
+        epoch_end_time = time.time()
+        epoch_duration = epoch_end_time - epoch_start_time
 
         print(f"Epoch {epoch+1}/{num_epochs} | "
               f"Train Loss: {avg_train_loss:.4f} | "
               f"Val Loss: {val_loss:.4f} | "
               f"Frame Accuracy: {val_frame_accuracy:.4f} | "
-              f"Train Time: {train_duration:.2f} seconds | "
-              f"Eval Time: {eval_duration:.2f} seconds | "
-              f"Total Time: {epoch_duration:.2f} seconds")
+              f"Epoch Time: {epoch_duration:.2f} seconds")
             
         # log epoch metrics
         with open(log_file, "a") as f:
