@@ -11,15 +11,17 @@ class SincNetConfig:
 
     # Windowing parameters
     sample_rate: int = 44100
-    cw_len: int = 10 # window length in ms
+    cw_len: int = 18 # window length in ms
     cw_shift: int = 1 # overlap in ms
 
     # number of filters, kernel size, stride
     conv_layers: List[Tuple[int, int, int]] = (
-        (80, 251, 1),
+        (220, 251, 1),
         (60, 5, 1),
         (60, 5, 1),
     )
+
+    # conv_layers_batchnorm: bool = False
 
     # number of neurons
     fc_layers: List[int] = (
@@ -27,6 +29,8 @@ class SincNetConfig:
         1024,
         1024,
     )
+
+    # fc_layers_batchnorm: bool = False
 
     # number of classes
     num_classes: int = 87
