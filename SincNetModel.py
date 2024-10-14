@@ -71,6 +71,7 @@ class SincNetModel(nn.Module):
             self.fc_layers.append(nn.Sequential(
                 nn.Linear(in_features=in_features, out_features=out_features),
                 nn.LayerNorm(out_features) if not cfg.fc_layers_batchnorm else nn.BatchNorm1d(out_features),
+                nn.Dropout(0.5), # experimental
                 nn.LeakyReLU()
             ))
 

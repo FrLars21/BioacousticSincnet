@@ -77,6 +77,9 @@ for epoch in range(num_epochs):
         val_loss = 0
         correct = 0
         total = 0
+        class_correct = torch.zeros(cfg.num_classes, device=device)
+        class_total = torch.zeros(cfg.num_classes, device=device)
+        class_predicted = torch.zeros(cfg.num_classes, device=device)
         for batch in val_loader:
             inputs, labels = batch
             inputs, labels = inputs.to(device), labels.to(device)
@@ -85,19 +88,34 @@ for epoch in range(num_epochs):
             _, predicted = outputs.max(1)
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
-    
-    epoch_end_time = time.time()
-    epoch_duration = epoch_end_time - epoch_start_time
-    
-    print(f"Epoch {epoch+1}/{num_epochs} |"
-          f"Train Loss: {avg_train_loss:.4f} |"
-          f"Val Loss: {val_loss/len(val_loader):.4f} |"
-          f"Val Acc: {correct/total:.4f} |"
-          f"Time: {epoch_duration:.2f} seconds")
-    
-    # log epoch validation loss and accuracy
-    with open(log_file, "a") as f:
-        f.write(f"{(epoch + 1) * len(train_loader)} val {val_loss/len(val_loader):.4f}\n")
+            
+            for c in range(cfg.num_classes):
+                class_mask = labels == c
+                class_correct[c] += (predicted[class_mask] == c).sum()
+                class_total[c] += class_mask.sum()
+                class_predicted[c] += (predicted == c).sum()
+
+        accuracy = correct / total
+        precision = (class_correct / class_predicted).mean().item()
+        recall = (class_correct / class_total).mean().item()
+        f1 = 2 * (precision * recall) / (precision + recall)
+
+        epoch_end_time = time.time()
+        epoch_duration = epoch_end_time - epoch_start_time
+        
+        print(f"Epoch {epoch+1}/{num_epochs} |"
+              f"Train Loss: {avg_train_loss:.4f} |"
+              f"Val Loss: {val_loss/len(val_loader):.4f} |"
+              f"Val Acc: {accuracy:.4f} |"
+              f"Precision: {precision:.4f} |"
+              f"Recall: {recall:.4f} |"
+              f"F1: {f1:.4f} |"
+              f"Time: {epoch_duration:.2f} seconds")
+        
+        # log epoch validation metrics
+        with open(log_file, "a") as f:
+            f.write(f"{(epoch + 1) * len(train_loader)} val {val_loss/len(val_loader):.4f} "
+                    f"{accuracy:.4f} {precision:.4f} {recall:.4f} {f1:.4f}\n")
 
 
 import sys; sys.exit(0)
