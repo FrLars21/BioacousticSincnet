@@ -165,6 +165,7 @@ for epoch in range(num_epochs):
     model.eval()
     val_loss = 0
     val_frame_accuracy = 0
+    num_val_batches = 0
     
     with torch.no_grad():
         for batch_inputs, batch_labels in val_loader.get_iterator():
@@ -175,9 +176,10 @@ for epoch in range(num_epochs):
             
             frame_predictions = torch.argmax(outputs, dim=1)
             val_frame_accuracy += (frame_predictions == batch_labels).float().mean().item()
+            num_val_batches += 1
 
-        val_loss /= len(val_loader)
-        val_frame_accuracy /= len(val_loader)
+        val_loss /= num_val_batches
+        val_frame_accuracy /= num_val_batches
 
         if torch.cuda.is_available():
             torch.cuda.synchronize()
