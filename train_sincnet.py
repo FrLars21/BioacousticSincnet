@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import sys
+import os
 
 from sincnet_io import AudioDataset, create_dataloaders
 from SincNetModel import SincNetModel, SincNetConfig
@@ -48,6 +49,7 @@ criterion = nn.CrossEntropyLoss() # same as NLLLoss originally used in SincNet, 
 optimizer = optim.AdamW(model.parameters(), lr=3e-4)
 
 num_epochs = 200
+log_file = os.path.join(os.path.dirname(__file__), "trainlog.txt")
 
 for epoch in range(num_epochs):
     model.train()
@@ -62,6 +64,10 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
+
+        # log train loss per step
+        with open(log_file, "a") as f:
+            f.write(f"{epoch * len(train_loader) + batch_idx} train {loss.item():.4f}\n")
     
     avg_train_loss = train_loss / len(train_loader)
     
@@ -82,11 +88,15 @@ for epoch in range(num_epochs):
     epoch_end_time = time.time()
     epoch_duration = epoch_end_time - epoch_start_time
     
-    print(f"Epoch {epoch+1}/{num_epochs}, "
-          f"Train Loss: {avg_train_loss:.4f}, "
-          f"Val Loss: {val_loss/len(val_loader):.4f}, "
-          f"Val Acc: {correct/total:.4f}, "
+    print(f"Epoch {epoch+1}/{num_epochs} |"
+          f"Train Loss: {avg_train_loss:.4f} |"
+          f"Val Loss: {val_loss/len(val_loader):.4f} |"
+          f"Val Acc: {correct/total:.4f} |"
           f"Time: {epoch_duration:.2f} seconds")
+    
+    # log epoch validation loss and accuracy
+    with open(log_file, "a") as f:
+        f.write(f"{(epoch + 1) * len(train_loader)} val {val_loss/len(val_loader):.4f}\n")
 
 
 import sys; sys.exit(0)
