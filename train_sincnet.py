@@ -95,10 +95,22 @@ for epoch in range(num_epochs):
                 class_total[c] += class_mask.sum()
                 class_predicted[c] += (predicted == c).sum()
 
-        accuracy = correct / total
-        precision = (class_correct / class_predicted).mean().item()
-        recall = (class_correct / class_total).mean().item()
-        f1 = 2 * (precision * recall) / (precision + recall)
+        # Handle division by zero
+        precision = torch.where(class_predicted != 0, class_correct / class_predicted, torch.zeros_like(class_predicted))
+        recall = torch.where(class_total != 0, class_correct / class_total, torch.zeros_like(class_total))
+        
+        # Calculate mean precision and recall, ignoring NaN values
+        precision_mean = precision[~torch.isnan(precision)].mean().item()
+        recall_mean = recall[~torch.isnan(recall)].mean().item()
+        
+        # Calculate F1 score, avoiding division by zero
+        f1 = torch.where(
+            (precision + recall) != 0,
+            2 * (precision * recall) / (precision + recall),
+            torch.zeros_like(precision)
+        ).mean().item()
+
+        accuracy = correct / total if total > 0 else 0
 
         epoch_end_time = time.time()
         epoch_duration = epoch_end_time - epoch_start_time
@@ -107,15 +119,15 @@ for epoch in range(num_epochs):
               f"Train Loss: {avg_train_loss:.4f} |"
               f"Val Loss: {val_loss/len(val_loader):.4f} |"
               f"Val Acc: {accuracy:.4f} |"
-              f"Precision: {precision:.4f} |"
-              f"Recall: {recall:.4f} |"
+              f"Precision: {precision_mean:.4f} |"
+              f"Recall: {recall_mean:.4f} |"
               f"F1: {f1:.4f} |"
               f"Time: {epoch_duration:.2f} seconds")
         
         # log epoch validation metrics
         with open(log_file, "a") as f:
             f.write(f"{(epoch + 1) * len(train_loader)} val {val_loss/len(val_loader):.4f} "
-                    f"{accuracy:.4f} {precision:.4f} {recall:.4f} {f1:.4f}\n")
+                    f"{accuracy:.4f} {precision_mean:.4f} {recall_mean:.4f} {f1:.4f}\n")
 
 
 import sys; sys.exit(0)

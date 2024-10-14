@@ -54,14 +54,14 @@ class SincNetModel(nn.Module):
             if i == 0:
                 self.conv_layers.append(nn.Sequential(
                     SincConv(out_channels=out_channels, sample_rate=cfg.sample_rate, kernel_size=kernel_size),
-                    nn.LayerNorm(out_channels),  # Use LayerNorm
+                    ChannelwiseLayerNorm(out_channels),
                     nn.LeakyReLU()
                 ))
             else:
                 in_channels = cfg.conv_layers[i-1][0]
                 self.conv_layers.append(nn.Sequential(
                     nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride),
-                    nn.LayerNorm(out_channels),  # Use LayerNorm
+                    ChannelwiseLayerNorm(out_channels),
                     nn.LeakyReLU()
                 ))
 
@@ -99,11 +99,12 @@ class SincNetModel(nn.Module):
     def forward(self, x):
         # Apply convolutional layers
         for conv_layer in self.conv_layers:
-            x = conv_layer[0](x)  # Apply Conv1d or SincConv
-            x = x.transpose(1, 2)  # Transpose: (batch, channels, time) -> (batch, time, channels)
-            x = conv_layer[1](x)  # Apply LayerNorm
-            x = x.transpose(1, 2)  # Transpose back: (batch, time, channels) -> (batch, channels, time)
-            x = conv_layer[2](x)  # Apply LeakyReLU
+            x = conv_layer(x)
+            # x = conv_layer[0](x)  # Apply Conv1d or SincConv
+            # x = x.transpose(1, 2)  # Transpose: (batch, channels, time) -> (batch, time, channels)
+            # x = conv_layer[1](x)  # Apply LayerNorm
+            # x = x.transpose(1, 2)  # Transpose back: (batch, time, channels) -> (batch, channels, time)
+            # x = conv_layer[2](x)  # Apply LeakyReLU
 
         # Flatten the output for fully connected layers
         x = x.contiguous().view(x.size(0), -1)
@@ -116,7 +117,16 @@ class SincNetModel(nn.Module):
         logits = self.classification_layer(x)
 
         return logits
+#----------------------------------------------------------------------------
+class ChannelwiseLayerNorm(nn.Module):
+    def __init__(self, num_channels):
+        super().__init__()
+        self.layer_norm = nn.LayerNorm(num_channels)
 
+    def forward(self, x):
+        # x shape: (batch, channels, time)
+        # Transpose, normalize, and transpose back
+        return self.layer_norm(x.transpose(1, 2)).transpose(1, 2)
 #----------------------------------------------------------------------------
 class SincConv(nn.Module):
     def __init__(self, out_channels: int, sample_rate: int, kernel_size: int, min_low_hz: int = 50, min_band_hz: int = 50):
