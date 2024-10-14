@@ -26,7 +26,7 @@ model = SincNetModel(cfg).to(device)
 # Set up data loaders
 train_loader, val_loader = create_dataloaders(
     root_dir="nips4bplus",
-    batch_size=2,
+    batch_size=256,
     sample_rate=cfg.sample_rate,
     cw_len=cfg.cw_len,
     augment_factor=0.2
