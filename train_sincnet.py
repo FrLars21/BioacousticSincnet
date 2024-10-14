@@ -26,7 +26,7 @@ model = SincNetModel(cfg).to(device)
 # Set up data loaders
 train_loader, val_loader = create_dataloaders(
     root_dir="nips4bplus",
-    batch_size=256,
+    batch_size=128,
     sample_rate=cfg.sample_rate,
     cw_len=cfg.cw_len,
     augment_factor=0
@@ -47,8 +47,8 @@ print(f"Percentage of trainable parameters: {trainable_params/total_params*100:.
 # import sys; sys.exit(0)
 
 criterion = nn.CrossEntropyLoss() # same as NLLLoss originally used in SincNet, but more efficient and stable
-# optimizer = optim.AdamW(model.parameters(), lr=3e-4)
-optimizer = optim.RMSprop(model.parameters(), lr=0.001, alpha=0.95, eps=1e-8)
+optimizer = optim.AdamW(model.parameters())#, lr=3e-4)
+# optimizer = optim.RMSprop(model.parameters(), lr=0.001, alpha=0.95, eps=1e-8)
 
 num_epochs = 200
 log_file = os.path.join(os.path.dirname(__file__), "trainlog.txt")
