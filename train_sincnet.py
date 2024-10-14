@@ -52,8 +52,8 @@ num_epochs = 200
 for epoch in range(num_epochs):
     model.train()
     train_loss = 0
-    for batch_idx, batch in enumerate(train_loader, 1):  # Start counting from 1
-        t0 = time.time()
+    epoch_start_time = time.time()
+    for batch_idx, batch in enumerate(train_loader, 1):
         inputs, labels = batch
         inputs, labels = inputs.to(device), labels.to(device)
         optimizer.zero_grad()
@@ -61,10 +61,6 @@ for epoch in range(num_epochs):
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        if torch.cuda.is_available(): torch.cuda.synchronize()
-        t1 = time.time()
-        dt = (t1 - t0) * 1000
-        print(f"Epoch {epoch+1}, Batch {batch_idx}, loss: {loss.item():.4f}, time: {dt:.2f} ms")
         train_loss += loss.item()
     
     avg_train_loss = train_loss / len(train_loader)
@@ -83,10 +79,14 @@ for epoch in range(num_epochs):
             total += labels.size(0)
             correct += predicted.eq(labels).sum().item()
     
+    epoch_end_time = time.time()
+    epoch_duration = epoch_end_time - epoch_start_time
+    
     print(f"Epoch {epoch+1}/{num_epochs}, "
           f"Train Loss: {avg_train_loss:.4f}, "
           f"Val Loss: {val_loss/len(val_loader):.4f}, "
-          f"Val Acc: {correct/total:.4f}")
+          f"Val Acc: {correct/total:.4f}, "
+          f"Time: {epoch_duration:.2f} seconds")
 
 
 import sys; sys.exit(0)
