@@ -23,9 +23,9 @@ class SincNetConfig:
 
     # number of neurons
     fc_layers: List[int] = (
-        2048,
-        2048,
-        2048,
+        1024,
+        1024,
+        1024,
     )
 
     # number of classes

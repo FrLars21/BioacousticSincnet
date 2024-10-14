@@ -50,7 +50,8 @@ optimizer = optim.AdamW(model.parameters(), lr=3e-4)
 
 num_epochs = 200
 log_file = os.path.join(os.path.dirname(__file__), "trainlog.txt")
-
+with open(log_file, "w") as f: # open for writing to clear the file
+    pass
 for epoch in range(num_epochs):
     model.train()
     train_loss = 0
