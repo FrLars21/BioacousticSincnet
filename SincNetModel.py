@@ -30,7 +30,7 @@ class SincNetConfig:
         1024,
     )
 
-    # fc_layers_batchnorm: bool = False
+    fc_layers_batchnorm: bool = True
 
     # number of classes
     num_classes: int = 87
@@ -70,7 +70,7 @@ class SincNetModel(nn.Module):
             in_features = self.conv_output_size if i == 0 else cfg.fc_layers[i-1]
             self.fc_layers.append(nn.Sequential(
                 nn.Linear(in_features=in_features, out_features=out_features),
-                nn.LayerNorm(out_features),
+                nn.LayerNorm(out_features) if not cfg.fc_layers_batchnorm else nn.BatchNorm1d(out_features),
                 nn.LeakyReLU()
             ))
 
