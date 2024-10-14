@@ -237,4 +237,4 @@ for epoch in range(num_epochs):
             
         # log epoch metrics
         with open(log_file, "a") as f:
-            f.write(f"{(epoch + 1) * len(train_loader)} val {avg_loss:.4f}")
+            f.write(f"{(epoch + 1) * batches_per_epoch} val {avg_loss:.4f}")
