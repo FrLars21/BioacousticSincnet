@@ -158,52 +158,48 @@ for epoch in range(num_epochs):
         total_frame_error = 0
         total_sentence_error = 0
 
-        for sample_idx in range(num_test_samples):
+        chunk_length = int(cfg.cw_len * cfg.sample_rate / 1000)
+        chunk_shift = int(cfg.cw_shift * cfg.sample_rate / 1000)
 
-            # Load audio file
+        for sample_idx in range(num_test_samples):
+            # Load and preprocess audio file
             audio_path = datadir / test_files_list[sample_idx]['file']
             signal, sample_rate = sf.read(audio_path)
 
-            # Check sample rate
             if sample_rate != cfg.sample_rate:
-                print(f"Warning: File {audio_path} has sample rate {sample_rate}, expected {cfg.sample_rate}")
                 signal = librosa.resample(signal, sample_rate, cfg.sample_rate)
             
-            # Convert to mono if stereo
             if signal.ndim > 1:
-                signal = signal.mean(dim=1)
+                signal = signal.mean(axis=1)
 
             signal = torch.from_numpy(signal).float().to(device)
-
             true_label = int(test_files_list[sample_idx]['label'])
 
-            chunk_length = int(cfg.cw_len * cfg.sample_rate / 1000)
-            chunk_shift = int(cfg.cw_shift * cfg.sample_rate / 1000)
+            # Normalize signal
+            signal = signal / torch.abs(signal).max()
             
             # Pad if necessary
             if len(signal) < chunk_length:
                 signal = F.pad(signal, (0, chunk_length - len(signal)))
 
-            # Normalize signal
-            signal = signal / torch.abs(signal.max())
-            
-            # Recalculate number of frames
+            # Calculate number of frames
             num_frames = max(1, (len(signal) - chunk_length) // chunk_shift + 1)
             
-            # Prepare tensors for frames and outputs
-            frame_signals = torch.zeros(num_frames, 1, chunk_length).float().to(device)
-            frame_logits = torch.zeros(num_frames, cfg.num_classes).float().to(device)
-
-            # Split signal into overlapping frames
-            frame_indices = torch.arange(0, num_frames).unsqueeze(1) * chunk_shift + torch.arange(chunk_length)
-            frame_signals = signal[frame_indices].unsqueeze(1)
+            # Prepare all frames
+            all_frames = torch.stack([
+                signal[i*chunk_shift:i*chunk_shift+chunk_length] 
+                for i in range(num_frames)
+            ]).unsqueeze(1)
 
             # Process frames in batches
+            frame_logits = []
             for batch_start in range(0, num_frames, cfg.batch_size):
                 batch_end = min(batch_start + cfg.batch_size, num_frames)
-                batch_input = frame_signals[batch_start:batch_end]
-                batch_logits = model(batch_input)
-                frame_logits[batch_start:batch_end] = batch_logits
+                batch_frames = all_frames[batch_start:batch_end]
+                batch_output = model(batch_frames)
+                frame_logits.append(batch_output)
+
+            frame_logits = torch.cat(frame_logits, dim=0)
 
             # Calculate frame-level predictions and error
             frame_predictions = torch.argmax(frame_logits, dim=1)
