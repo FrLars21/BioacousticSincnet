@@ -29,7 +29,7 @@ train_loader, val_loader = create_dataloaders(
     batch_size=256,
     sample_rate=cfg.sample_rate,
     cw_len=cfg.cw_len,
-    augment_factor=0.2
+    augment_factor=0
 )
 
 # Print dataset sizes and number of batches

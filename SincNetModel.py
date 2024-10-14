@@ -16,7 +16,7 @@ class SincNetConfig:
 
     # number of filters, kernel size, stride
     conv_layers: List[Tuple[int, int, int]] = (
-        (220, 251, 1),
+        (220, 151, 1),
         (60, 5, 1),
         (60, 5, 1),
     )
@@ -77,7 +77,7 @@ class SincNetModel(nn.Module):
             self.fc_layers.append(nn.Sequential(
                 nn.Linear(in_features=in_features, out_features=out_features),
                 nn.LayerNorm(out_features) if not cfg.fc_layers_batchnorm else nn.BatchNorm1d(out_features),
-                nn.Dropout(0.5), # experimental
+                # nn.Dropout(0.5), # experimental
                 nn.LeakyReLU()
             ))
 
