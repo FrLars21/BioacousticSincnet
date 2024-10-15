@@ -110,10 +110,11 @@ train_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_l
 
 # Load the validation set
 inputs, labels = torch.load('validation_set.pt')
+inputs, labels = inputs.to(device), labels.to(device)
 
 # Create a TensorDataset from inputs and labels
 val_dataset = TensorDataset(inputs, labels)
-val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True)
+val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=False)
 
 # Print the number of parameters in the model
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -159,7 +160,7 @@ for epoch in range(num_epochs):
 
     with torch.no_grad():
         for x, y in val_loader:
-            x, y = x.to(device), y.to(device)
+            #x, y = x.to(device), y.to(device)
             outputs = model(x)
             loss = criterion(outputs, y)
             val_loss += loss.item()
