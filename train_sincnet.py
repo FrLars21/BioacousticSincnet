@@ -108,6 +108,7 @@ with open(log_file, "w") as f: # open for writing to clear the file
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), weight_decay=0.01)
+scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, verbose=True)
 
 num_epochs = cfg.num_epochs
 batches_per_epoch = cfg.batches_per_epoch
@@ -196,6 +197,8 @@ for epoch in range(num_epochs):
         total_loss /= len(test_data_list)
         total_frame_error /= len(test_data_list)
         total_sent_error /= len(test_data_list)
+
+        scheduler.step(total_loss)
 
         if torch.cuda.is_available(): torch.cuda.synchronize()
         epoch_end_time = time.time()
