@@ -35,9 +35,9 @@ def preprocess_train_data(data_list_path, datadir, device, sample_rate = 44100):
         all_signals.append(signal)
     
     # concatenate all the tensors
-    all_file_ids = torch.cat(all_file_ids, dim=0)
-    all_labels = torch.cat(all_labels, dim=0)
-    all_signals = torch.cat(all_signals, dim=0)
+    all_file_ids = torch.stack(all_file_ids)
+    all_labels = torch.stack(all_labels)
+    all_signals = torch.stack(all_signals)
 
     torch.save((all_file_ids.cpu(), all_signals.cpu(), all_labels.cpu()), 'train_set.pt')
     print(f"Train set saved as 'train_set.pt'")
