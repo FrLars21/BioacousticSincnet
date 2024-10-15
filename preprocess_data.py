@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 import soundfile as sf
 
-def preprocess_train_data(data_list_path, datadir, device,sample_rate = 44100):
+def preprocess_train_data(data_list_path, datadir, device, sample_rate = 44100):
 
     all_file_ids = []
     all_labels = []
@@ -19,7 +19,7 @@ def preprocess_train_data(data_list_path, datadir, device,sample_rate = 44100):
         signal, fs = sf.read(datadir / row["file"])
 
         if fs != sample_rate:
-            raise ValueError(f"File {row["file"]} has sample rate {fs}, expected {sample_rate}")
+            raise ValueError(f"File {row['file']} has sample rate {fs}, expected {sample_rate}")
         
         signal = torch.from_numpy(signal).float().to(device)
 
