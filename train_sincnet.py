@@ -30,7 +30,7 @@ datadir = Path("data")
 
 #-------------------------------------------
 cache = {}
-def load_audio(file_path, device, sample_rate = 44100):
+def load_audio(file_path, device, sample_rate=44100):
     if file_path in cache:
         return cache[file_path]
 
@@ -47,6 +47,9 @@ def load_audio(file_path, device, sample_rate = 44100):
     
     # Normalize the signal to be between -1 and 1
     signal = signal / torch.abs(signal.max())
+
+    # Store the processed signal in the cache
+    cache[file_path] = signal
 
     return signal
 
