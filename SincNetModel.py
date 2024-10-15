@@ -65,7 +65,8 @@ class SincNetModel(nn.Module):
                     # todo: if using layernorm instead of batchnom, maxpool should be applied to the torch.abs of the sinc layer.
                     nn.MaxPool1d(cfg.conv_max_pool_len[i]) if cfg.conv_max_pool_len[i] > 1 else nn.Identity(),
                     ChannelwiseLayerNorm(out_channels) if not cfg.conv_layers_batchnorm else nn.BatchNorm1d(out_channels),
-                    nn.LeakyReLU()
+                    nn.LeakyReLU(),
+                    nn.Dropout(0.5), # experimental
                 ))
             else:
                 in_channels = cfg.conv_layers[i-1][0]
@@ -73,7 +74,8 @@ class SincNetModel(nn.Module):
                     nn.Conv1d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernel_size, stride=stride),
                     nn.MaxPool1d(cfg.conv_max_pool_len[i]) if cfg.conv_max_pool_len[i] > 1 else nn.Identity(),
                     ChannelwiseLayerNorm(out_channels) if not cfg.conv_layers_batchnorm else nn.BatchNorm1d(out_channels),
-                    nn.LeakyReLU()
+                    nn.LeakyReLU(),
+                    nn.Dropout(0.5), # experimental
                 ))
 
         # create the fc layers
@@ -82,8 +84,8 @@ class SincNetModel(nn.Module):
             self.fc_layers.append(nn.Sequential(
                 nn.Linear(in_features=in_features, out_features=out_features),
                 nn.LayerNorm(out_features) if not cfg.fc_layers_batchnorm else nn.BatchNorm1d(out_features),
+                nn.LeakyReLU(),
                 nn.Dropout(0.5), # experimental
-                nn.ReLU()
             ))
 
 
