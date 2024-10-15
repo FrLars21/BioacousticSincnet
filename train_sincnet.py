@@ -78,8 +78,9 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
             rand_start = torch.randint(t_min, t_max - chunk_len, (1,)).item()
             chunk = signal[rand_start:rand_start+chunk_len]
         else:
+            # TODO: fix this to sample from the middle of the vocalization instead of padding
+            # but not that important, since it is around 50 examples per epoch
             chunk = signal[t_min:t_max]
-            print("here")
             # Pad if necessary
             if len(chunk) < chunk_len:
                 # print(f"Padding chunk {file_path} which was {len(chunk) * 1000 / sample_rate:.2f} ms long")
@@ -203,8 +204,7 @@ for epoch in range(num_epochs):
             f"Frame Accuracy: {1 - total_frame_error:.4f} | "
             f"Sentence Accuracy: {1 - total_sent_error:.4f} | "
             f"Eval Time: {eval_duration:.2f} seconds | "
-            f"Epoch Time: {epoch_duration:.2f} seconds | "
-            f"Used {len(cache)} unique audio files")
+            f"Epoch Time: {epoch_duration:.2f} seconds | ")
         
         # log epoch metrics
         with open(log_file, "a") as f:

@@ -16,7 +16,7 @@ class SincNetConfig:
 
     # Windowing parameters
     sample_rate: int = 44100
-    cw_len: int = 18 # window length in ms
+    cw_len: int = 20 # window length in ms
     cw_shift: int = 1 # overlap in ms
 
     # number of filters, kernel size, stride
@@ -82,8 +82,8 @@ class SincNetModel(nn.Module):
             self.fc_layers.append(nn.Sequential(
                 nn.Linear(in_features=in_features, out_features=out_features),
                 nn.LayerNorm(out_features) if not cfg.fc_layers_batchnorm else nn.BatchNorm1d(out_features),
-                # nn.Dropout(0.5), # experimental
-                nn.LeakyReLU()
+                nn.Dropout(0.5), # experimental
+                nn.ReLU()
             ))
 
 
@@ -117,11 +117,6 @@ class SincNetModel(nn.Module):
         # Apply convolutional layers
         for conv_layer in self.conv_layers:
             x = conv_layer(x)
-            # x = conv_layer[0](x)  # Apply Conv1d or SincConv
-            # x = x.transpose(1, 2)  # Transpose: (batch, channels, time) -> (batch, time, channels)
-            # x = conv_layer[1](x)  # Apply LayerNorm
-            # x = x.transpose(1, 2)  # Transpose back: (batch, time, channels) -> (batch, channels, time)
-            # x = conv_layer[2](x)  # Apply LeakyReLU
 
         # Flatten the output for fully connected layers
         x = x.contiguous().view(x.size(0), -1)
