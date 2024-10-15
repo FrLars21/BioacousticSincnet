@@ -62,7 +62,7 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
         chunks = chunks.unsqueeze(1)
 
         # Normalize each chunk
-        chunks = (chunks - chunks.mean(dim=2, keepdim=True)) / (chunks.std(dim=2, keepdim=True) + 1e-8)
+        # chunks = (chunks - chunks.mean(dim=2, keepdim=True)) / (chunks.std(dim=2, keepdim=True) + 1e-8)
 
         all_chunks.append(chunks)
         all_labels.append(torch.full((chunks.size(0),), label, dtype=torch.long, device=device))

@@ -40,32 +40,27 @@ class DataLoaderLite:
         with open(data_list, 'r') as csvfile:
             self.data_list = list(csv.DictReader(csvfile))
         self.num_samples = len(self.data_list)
-        
-        self.cache = {}  # Cache for loaded audio files
 
     def __len__(self):
         return self.num_samples
 
     def load_audio(self, file_path):
-        if file_path not in self.cache:
-            signal, fs = sf.read(str(file_path))
-            
-            # Ensure the signal is single-channel
-            if signal.ndim == 2:
-                print(f"WARNING: converting stereo to mono: {file_path}")
-                signal = signal.mean(axis=1)  # Convert stereo to mono by averaging channels
-            elif signal.ndim > 2:
-                raise ValueError(f"Unexpected number of dimensions in audio file: {file_path}")
+        signal, fs = sf.read(str(file_path))
+        
+        # Ensure the signal is single-channel
+        if signal.ndim == 2:
+            print(f"WARNING: converting stereo to mono: {file_path}")
+            signal = signal.mean(axis=1)  # Convert stereo to mono by averaging channels
+        elif signal.ndim > 2:
+            raise ValueError(f"Unexpected number of dimensions in audio file: {file_path}")
 
-            # Convert to tensor
-            signal = torch.tensor(signal, dtype=torch.float32)
-            
-            # Normalize signal
-            signal = signal / torch.abs(signal.max())
-            
-            self.cache[file_path] = signal
-
-        return self.cache[file_path]
+        # Convert to tensor
+        signal = torch.tensor(signal, dtype=torch.float32)
+        
+        # Normalize signal
+        signal = signal / torch.abs(signal.max())
+        
+        return signal
 
     def get_chunk(self, signal, start, end):
         if end - start > self.chunk_length:
