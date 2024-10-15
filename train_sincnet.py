@@ -93,17 +93,16 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
 
     return torch.stack(x).unsqueeze(1), torch.tensor(y, dtype=torch.long)
 
-# # Data loading
-# train_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_list="mod_all_classes_train_files.csv", 
-#                               sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
+with open("mod_all_classes_test_files.csv", 'r') as csvfile:
+    test_data_list = list(csv.DictReader(csvfile))
 
 # Load the validation set
-inputs, labels, file_ids = torch.load('validation_set.pt')
-inputs, labels, file_ids = inputs.to(device), labels.to(device), file_ids.to(device)
+# inputs, labels, file_ids = torch.load('validation_set.pt')
+# inputs, labels, file_ids = inputs.to(device), labels.to(device), file_ids.to(device)
 
-# Create a TensorDataset from inputs, labels, and file_ids
-val_dataset = TensorDataset(inputs, labels, file_ids)
-val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=False)
+# # Create a TensorDataset from inputs, labels, and file_ids
+# val_dataset = TensorDataset(inputs, labels, file_ids)
+# val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=False)
 
 # Print the number of parameters in the model
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -146,21 +145,45 @@ for epoch in range(num_epochs):
     
     # Validation loop
     model.eval()
-    val_loss = 0
-    val_frame_accuracy = 0
 
-    file_predictions = {}
-    file_labels = {}
-    #file_losses = {}
+    total_loss = 0
+    total_frame_error = 0
+    total_sent_error = 0
 
     with torch.no_grad():
-        for x, y, file_id in val_loader:
-            outputs = model(x)
-            loss = criterion(outputs, y)
-            val_loss += loss.item()
+        for val_file in test_data_list:
+            label = int(val_file['label'])
+            signal = load_audio(datadir / val_file['file'], device, cfg.sample_rate)
 
-    val_loss /= len(val_loader)
-    val_frame_accuracy /= len(val_loader)
+            chunk_len = (cfg.cw_len * cfg.sample_rate) // 1000 # chunk length in samples
+            chunk_shift = (cfg.cw_shift * cfg.sample_rate) // 1000 # chunk shift in samples
+
+            # calculate number of chunks
+            num_chunks = int((signal.shape[0] - chunk_len) / chunk_shift) + 1
+            chunks = signal.unfold(0, chunk_len, chunk_shift).transpose(0, 1)
+            pout = torch.zeros(num_chunks, model.output_size).to(signal.device)
+
+            for i in range(0, num_chunks, cfg.batch_size):
+                batch = chunks[i:min(i+cfg.batch_size, num_chunks)]
+                pout[i:i+batch.shape[0]] = model(batch)
+
+            # Calculate predictions and errors for the entire file
+            pred = torch.argmax(pout, dim=1)
+            lab = torch.full((num_chunks,), label).to(signal.device)
+            loss = F.cross_entropy(pout, lab)
+            frame_error = (pred != lab).float().mean()
+            
+            # Calculate sentence-level prediction
+            sentence_pred = torch.argmax(pout.sum(dim=0))
+            sentence_error = (sentence_pred != lab[0]).float()
+
+            total_loss += loss.item()
+            total_frame_error += frame_error.item()
+            total_sent_error += sentence_error.item()
+
+    total_loss /= len(test_data_list)
+    total_frame_error /= len(test_data_list)
+    total_sent_error /= len(test_data_list)
 
     if torch.cuda.is_available(): torch.cuda.synchronize()
     epoch_end_time = time.time()
@@ -169,11 +192,12 @@ for epoch in range(num_epochs):
     
     print(f"Epoch {epoch+1}/{num_epochs} | "
           f"Train Loss: {avg_train_loss:.4f} | "
-          f"Val Loss: {val_loss:.4f} | "
-          f"Frame Accuracy: {val_frame_accuracy:.4f} | "
+          f"Val Loss: {total_loss:.4f} | "
+          f"Frame Accuracy: {1 - total_frame_error:.4f} | "
+          f"Sentence Accuracy: {1 - total_sent_error:.4f} | "
           f"Eval Time: {eval_duration:.2f} seconds | "
           f"Epoch Time: {epoch_duration:.2f} seconds | ")
     
     # log epoch metrics
     with open(log_file, "a") as f:
-        f.write(f"{(epoch + 1) * batches_per_epoch} val {val_loss:.4f}\n")
+        f.write(f"{(epoch + 1) * batches_per_epoch} val {total_loss:.4f}\n")

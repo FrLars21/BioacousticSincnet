@@ -17,7 +17,7 @@ class SincNetConfig:
     # Windowing parameters
     sample_rate: int = 44100
     cw_len: int = 18 # window length in ms
-    cw_shift: int = 1 # overlap in ms
+    cw_shift: int = 6 # overlap in ms
 
     # number of filters, kernel size, stride
     conv_layers: List[Tuple[int, int, int]] = (
