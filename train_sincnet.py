@@ -108,7 +108,7 @@ with open(log_file, "w") as f: # open for writing to clear the file
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
-scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, min_lr=1e-5)
+#scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, min_lr=1e-5)
 
 num_epochs = cfg.num_epochs
 batches_per_epoch = cfg.batches_per_epoch
@@ -199,7 +199,7 @@ for epoch in range(num_epochs):
         total_frame_error /= len(test_data_list)
         total_sent_error /= len(test_data_list)
 
-        scheduler.step(total_loss)
+        #scheduler.step(total_loss)
 
         if torch.cuda.is_available(): torch.cuda.synchronize()
         epoch_end_time = time.time()
@@ -212,8 +212,8 @@ for epoch in range(num_epochs):
             f"Frame Accuracy: {1 - total_frame_error:.4f} | "
             f"Sentence Accuracy: {1 - total_sent_error:.4f} | "
             f"Eval Time: {eval_duration:.2f} seconds | "
-            f"Epoch Time: {epoch_duration:.2f} seconds | "
-            f"LR: {scheduler.get_last_lr()[0]:.8f}")
+            f"Epoch Time: {epoch_duration:.2f} seconds | ")
+            #f"LR: {scheduler.get_last_lr()[0]:.8f}")
         
         # log epoch metrics
         with open(log_file, "a") as f:
