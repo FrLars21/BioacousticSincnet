@@ -82,7 +82,7 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
             chunk = signal[t_min:t_max]
             # Pad if necessary
             if len(chunk) < chunk_len:
-                print(f"Padding chunk {file_path} which was {len(chunk) * 1000 / sample_rate:.2f} ms long")
+                # print(f"Padding chunk {file_path} which was {len(chunk) * 1000 / sample_rate:.2f} ms long")
                 chunk = F.pad(chunk, (0, chunk_len - len(chunk)))
 
         # Apply random amplitude scaling
