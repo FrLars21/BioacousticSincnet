@@ -30,7 +30,7 @@ datadir = Path("data")
 
 #-------------------------------------------
 cache = {}
-def load_audio(file_path, sample_rate = 44100):
+def load_audio(file_path, device, sample_rate = 44100):
     if file_path in cache:
         return cache[file_path]
 
@@ -39,7 +39,7 @@ def load_audio(file_path, sample_rate = 44100):
     if fs != sample_rate:
         raise ValueError(f"File {file_path} has sample rate {fs}, expected {sample_rate}")
     
-    signal = torch.from_numpy(signal).float()#.to(device)
+    signal = torch.from_numpy(signal).float().to(device)
 
     # Ensure the signal is a 1D tensor
     if signal.dim() != 1:
@@ -66,7 +66,7 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
     for idx in indices:
         row = data_list[idx]
         file_path = datadir / row['file']
-        signal = load_audio(file_path)
+        signal = load_audio(file_path, device, sample_rate)
         
         # calculate start and end of vocalization annotation
         t_min, t_max = int(float(row['start']) * sample_rate), int(float(row['start']) * sample_rate + float(row['length']) * sample_rate)
@@ -82,7 +82,7 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
                 chunk = F.pad(chunk, (0, chunk_len - len(chunk)))
 
         # Apply random amplitude scaling
-        amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor)
+        amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor).to(device)
         chunk = chunk * amp_scale
 
         x.append(chunk)
@@ -155,42 +155,9 @@ for epoch in range(num_epochs):
             outputs = model(x)
             loss = criterion(outputs, y)
             val_loss += loss.item()
-            
-            frame_predictions = torch.argmax(outputs, dim=1)
-            val_frame_accuracy += (frame_predictions == y).float().mean().item()
-
-            # Aggregate predictions, labels, and losses by file
-            for i, fid in enumerate(file_id):
-                fid = fid.item()
-                if fid not in file_predictions:
-                    file_predictions[fid] = []
-                    file_labels[fid] = []
-                    #file_losses[fid] = []
-                file_predictions[fid].append(frame_predictions[i])
-                file_labels[fid].append(y[i])
-                #file_losses[fid].append(loss[i])
 
     val_loss /= len(val_loader)
     val_frame_accuracy /= len(val_loader)
-
-    # Calculate file-level accuracy
-    file_correct = 0
-    total_files = len(file_predictions)
-    
-    for fid in file_predictions:
-        file_preds = torch.stack(file_predictions[fid])
-        file_label = file_labels[fid][0]  # All labels for a file should be the same
-        
-        # Voting for file-level prediction
-        file_pred = torch.mode(file_preds).values
-        
-        if file_pred == file_label:
-            file_correct += 1
-        
-        # Calculate average loss for the file
-        #file_losses[fid] = torch.stack(file_losses[fid]).mean().item()
-
-    file_accuracy = file_correct / total_files
 
     if torch.cuda.is_available(): torch.cuda.synchronize()
     epoch_end_time = time.time()
@@ -201,7 +168,6 @@ for epoch in range(num_epochs):
           f"Train Loss: {avg_train_loss:.4f} | "
           f"Val Loss: {val_loss:.4f} | "
           f"Frame Accuracy: {val_frame_accuracy:.4f} | "
-          f"File Accuracy: {file_accuracy:.4f} | "
           f"Eval Time: {eval_duration:.2f} seconds | "
           f"Epoch Time: {epoch_duration:.2f} seconds | ")
     
