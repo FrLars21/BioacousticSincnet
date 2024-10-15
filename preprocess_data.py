@@ -30,14 +30,14 @@ def preprocess_train_data(data_list_path, datadir, device, sample_rate = 44100):
         # Normalize the signal to be between -1 and 1
         signal = signal / torch.abs(signal.max())
 
-        all_file_ids.append(rowid)
-        all_labels.append(label)
+        all_file_ids.append(torch.Tensor([rowid]))
+        all_labels.append(torch.Tensor([label]))
         all_signals.append(signal)
     
     # concatenate all the tensors
-    all_file_ids = torch.tensor(all_file_ids, dtype=torch.long, device=device)
-    all_labels = torch.tensor(all_labels, dtype=torch.long, device=device)
-    all_signals = torch.tensor(all_signals, dtype=torch.float, device=device)
+    all_file_ids = torch.cat(all_file_ids, dim=0)
+    all_labels = torch.cat(all_labels, dim=0)
+    all_signals = torch.cat(all_signals, dim=0)
 
     torch.save((all_file_ids.cpu(), all_signals.cpu(), all_labels.cpu()), 'train_set.pt')
     print(f"Train set saved as 'train_set.pt'")
