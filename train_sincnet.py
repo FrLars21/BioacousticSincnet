@@ -82,11 +82,12 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
             chunk = signal[t_min:t_max]
             # Pad if necessary
             if len(chunk) < chunk_len:
+                print(f"Padding chunk {file_path} which was {len(chunk) * 1000 / sample_rate:.2f} ms long")
                 chunk = F.pad(chunk, (0, chunk_len - len(chunk)))
 
         # Apply random amplitude scaling
-        amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor).to(device)
-        chunk = chunk * amp_scale
+        # amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor).to(device)
+        # chunk = chunk * amp_scale
 
         x.append(chunk)
         y.append(int(row['label']))
@@ -136,7 +137,7 @@ for epoch in range(num_epochs):
     if not epoch % 8 == 0:
         if torch.cuda.is_available(): torch.cuda.synchronize()
         epoch_end_time = time.time()
-        print("Epoch done in {:.2f} seconds".format(epoch_end_time - epoch_start_time))
+        print("Epoch done in {:.2f} seconds, train loss: {:.4f}".format(epoch_end_time - epoch_start_time, avg_train_loss))
     else:
         eval_start_time = time.time()
         
