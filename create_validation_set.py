@@ -10,11 +10,12 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
 
     all_chunks = []
     all_labels = []
+    all_file_ids = []  # New list to store file identifiers
 
     with open(data_list_path, 'r') as csvfile:
         data_list = list(csv.DictReader(csvfile))
 
-    for row in data_list:
+    for file_id, row in enumerate(data_list):
         label = int(row["label"])
         signal_path = datadir / row["file"]
         
@@ -66,23 +67,26 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
 
         all_chunks.append(chunks)
         all_labels.append(torch.full((chunks.size(0),), label, dtype=torch.long, device=device))
+        all_file_ids.append(torch.full((chunks.size(0),), file_id, dtype=torch.long, device=device))
 
     # Concatenate all chunks and labels into single tensors
     if all_chunks and all_labels:
         all_chunks = torch.cat(all_chunks, dim=0)  # Shape: (total_chunks, 1, chunk_length)
         all_labels = torch.cat(all_labels, dim=0)  # Shape: (total_chunks,)
+        all_file_ids = torch.cat(all_file_ids, dim=0)  # Shape: (total_chunks,)
 
         # Save the chunks and labels as a .pt file
-        torch.save((all_chunks.cpu(), all_labels.cpu()), 'validation_set.pt')
+        torch.save((all_chunks.cpu(), all_labels.cpu(), all_file_ids.cpu()), 'validation_set.pt')
         
         print(f"Validation set saved as 'validation_set.pt'")
 
         print(all_chunks.shape)
         print(all_labels.shape)
+        print(all_file_ids.shape)
     else:
         print("No chunks were created. Please check the input data.")
 
-    return all_chunks, all_labels
+    return all_chunks, all_labels, all_file_ids
 
 if __name__ == "__main__":
     # Set up device

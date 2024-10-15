@@ -109,11 +109,11 @@ train_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_l
                               sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
 
 # Load the validation set
-inputs, labels = torch.load('validation_set.pt')
-inputs, labels = inputs.to(device), labels.to(device)
+inputs, labels, file_ids = torch.load('validation_set.pt')
+inputs, labels, file_ids = inputs.to(device), labels.to(device), file_ids.to(device)
 
-# Create a TensorDataset from inputs and labels
-val_dataset = TensorDataset(inputs, labels)
+# Create a TensorDataset from inputs, labels, and file_ids
+val_dataset = TensorDataset(inputs, labels, file_ids)
 val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=False)
 
 # Print the number of parameters in the model
@@ -160,9 +160,12 @@ for epoch in range(num_epochs):
     val_loss = 0
     val_frame_accuracy = 0
 
+    file_predictions = {}
+    file_labels = {}
+    file_losses = {}
+
     with torch.no_grad():
-        for x, y in val_loader:
-            #x, y = x.to(device), y.to(device)
+        for x, y, file_id in val_loader:
             outputs = model(x)
             loss = criterion(outputs, y)
             val_loss += loss.item()
@@ -170,22 +173,52 @@ for epoch in range(num_epochs):
             frame_predictions = torch.argmax(outputs, dim=1)
             val_frame_accuracy += (frame_predictions == y).float().mean().item()
 
-        val_loss /= len(val_loader)
-        val_frame_accuracy /= len(val_loader)
+            # Aggregate predictions, labels, and losses by file
+            for i, fid in enumerate(file_id):
+                fid = fid.item()
+                if fid not in file_predictions:
+                    file_predictions[fid] = []
+                    file_labels[fid] = []
+                    file_losses[fid] = []
+                file_predictions[fid].append(frame_predictions[i])
+                file_labels[fid].append(y[i])
+                file_losses[fid].append(loss[i])
 
-        if torch.cuda.is_available(): torch.cuda.synchronize()
-        epoch_end_time = time.time()
-        eval_duration = epoch_end_time - eval_start_time
-        epoch_duration = epoch_end_time - epoch_start_time
+    val_loss /= len(val_loader)
+    val_frame_accuracy /= len(val_loader)
 
-        print(f"Epoch {epoch+1}/{num_epochs} | "
-              f"Train Loss: {avg_train_loss:.4f} | "
-              f"Val Loss: {val_loss:.4f} | "
-              f"Frame Accuracy: {val_frame_accuracy:.4f} | "
-              f"Eval Time: {eval_duration:.2f} seconds | "
-              f"Epoch Time: {epoch_duration:.2f} seconds | "
-              f"Validation examples: {len(val_loader.dataset)} ")
+    # Calculate file-level accuracy
+    file_correct = 0
+    total_files = len(file_predictions)
+    
+    for fid in file_predictions:
+        file_preds = torch.stack(file_predictions[fid])
+        file_label = file_labels[fid][0]  # All labels for a file should be the same
         
-        # log epoch metrics
-        with open(log_file, "a") as f:
-            f.write(f"{(epoch + 1) * batches_per_epoch} val {val_loss:.4f}\n")
+        # Voting for file-level prediction
+        file_pred = torch.mode(file_preds).values
+        
+        if file_pred == file_label:
+            file_correct += 1
+        
+        # Calculate average loss for the file
+        file_losses[fid] = torch.stack(file_losses[fid]).mean().item()
+
+    file_accuracy = file_correct / total_files
+
+    if torch.cuda.is_available(): torch.cuda.synchronize()
+    epoch_end_time = time.time()
+    eval_duration = epoch_end_time - eval_start_time
+    epoch_duration = epoch_end_time - epoch_start_time
+    
+    print(f"Epoch {epoch+1}/{num_epochs} | "
+          f"Train Loss: {avg_train_loss:.4f} | "
+          f"Val Loss: {val_loss:.4f} | "
+          f"Frame Accuracy: {val_frame_accuracy:.4f} | "
+          f"File Accuracy: {file_accuracy:.4f} | "
+          f"Eval Time: {eval_duration:.2f} seconds | "
+          f"Epoch Time: {epoch_duration:.2f} seconds | "
+    
+    # log epoch metrics
+    with open(log_file, "a") as f:
+        f.write(f"{(epoch + 1) * batches_per_epoch} val {val_loss:.4f}\n")
