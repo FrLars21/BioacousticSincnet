@@ -21,7 +21,7 @@ class SincNetConfig:
 
     # number of filters, kernel size (filter length), stride
     conv_layers: List[Tuple[int, int, int]] = (
-        (127, 250, 1),
+        (127, 251, 1),
         (60, 5, 1),
         (60, 5, 1),
     )
