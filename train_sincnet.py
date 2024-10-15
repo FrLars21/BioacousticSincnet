@@ -40,27 +40,32 @@ class DataLoaderLite:
         with open(data_list, 'r') as csvfile:
             self.data_list = list(csv.DictReader(csvfile))
         self.num_samples = len(self.data_list)
+        
+        self.cache = {}  # Cache for loaded audio files
 
     def __len__(self):
         return self.num_samples
 
     def load_audio(self, file_path):
-        signal, fs = sf.read(str(file_path))
-        
-        # Ensure the signal is single-channel
-        if signal.ndim == 2:
-            print(f"WARNING: converting stereo to mono: {file_path}")
-            signal = signal.mean(axis=1)  # Convert stereo to mono by averaging channels
-        elif signal.ndim > 2:
-            raise ValueError(f"Unexpected number of dimensions in audio file: {file_path}")
+        if file_path not in self.cache:
+            signal, fs = sf.read(str(file_path))
+            
+            # Ensure the signal is single-channel
+            if signal.ndim == 2:
+                print(f"WARNING: converting stereo to mono: {file_path}")
+                signal = signal.mean(axis=1)  # Convert stereo to mono by averaging channels
+            elif signal.ndim > 2:
+                raise ValueError(f"Unexpected number of dimensions in audio file: {file_path}")
 
-        # Convert to tensor
-        signal = torch.tensor(signal, dtype=torch.float32)
-        
-        # Normalize signal
-        signal = signal / torch.abs(signal.max())
-        
-        return signal
+            # Convert to tensor
+            signal = torch.tensor(signal, dtype=torch.float32)
+            
+            # Normalize signal
+            signal = signal / torch.abs(signal.max())
+            
+            self.cache[file_path] = signal
+
+        return self.cache[file_path]
 
     def get_chunk(self, signal, start, end):
         if end - start > self.chunk_length:
@@ -147,6 +152,8 @@ for epoch in range(num_epochs):
             f.write(f"{epoch * batches_per_epoch + batch_idx} train {loss.item():.4f}\n")
     
     avg_train_loss = train_loss / batches_per_epoch
+
+    eval_start_time = time.time()
     
     # Validation loop
     model.eval()
@@ -168,12 +175,14 @@ for epoch in range(num_epochs):
 
         if torch.cuda.is_available(): torch.cuda.synchronize()
         epoch_end_time = time.time()
+        eval_duration = epoch_end_time - eval_start_time
         epoch_duration = epoch_end_time - epoch_start_time
 
         print(f"Epoch {epoch+1}/{num_epochs} | "
               f"Train Loss: {avg_train_loss:.4f} | "
               f"Val Loss: {val_loss:.4f} | "
               f"Frame Accuracy: {val_frame_accuracy:.4f} | "
+              f"Eval Time: {eval_duration:.2f} seconds | "
               f"Epoch Time: {epoch_duration:.2f} seconds")
             
         # log epoch metrics
