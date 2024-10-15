@@ -86,8 +86,8 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
                 chunk = F.pad(chunk, (0, chunk_len - len(chunk)))
 
         # Apply random amplitude scaling
-        # amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor).to(device)
-        # chunk = chunk * amp_scale
+        amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor).to(device)
+        chunk = chunk * amp_scale
 
         x.append(chunk)
         y.append(int(row['label']))
@@ -201,7 +201,8 @@ for epoch in range(num_epochs):
             f"Frame Accuracy: {1 - total_frame_error:.4f} | "
             f"Sentence Accuracy: {1 - total_sent_error:.4f} | "
             f"Eval Time: {eval_duration:.2f} seconds | "
-            f"Epoch Time: {epoch_duration:.2f} seconds | ")
+            f"Epoch Time: {epoch_duration:.2f} seconds | "
+            f"Used {len(cache)} unique audio files")
         
         # log epoch metrics
         with open(log_file, "a") as f:
