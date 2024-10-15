@@ -75,7 +75,7 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
         
         # if the vocalization is longer than the chunk length, randomly select a start point
         if t_max - t_min > chunk_len:
-            rand_start = torch.randint(t_min, t_max - chunk_len).item()
+            rand_start = torch.randint(t_min, t_max - chunk_len, (1,)).item()
             chunk = signal[rand_start:rand_start+chunk_len]
         else:
             chunk = signal[t_min:t_max]
