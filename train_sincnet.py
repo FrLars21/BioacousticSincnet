@@ -153,17 +153,23 @@ for epoch in range(num_epochs):
                 label = int(val_file['label'])
                 signal = load_audio(datadir / val_file['file'], device, cfg.sample_rate)
 
-                chunk_len = (cfg.cw_len * cfg.sample_rate) // 1000 # chunk length in samples
-                chunk_shift = (cfg.cw_shift * cfg.sample_rate) // 1000 # chunk shift in samples
+                chunk_len = (cfg.cw_len * cfg.sample_rate) // 1000  # chunk length in samples
+                chunk_shift = (cfg.cw_shift * cfg.sample_rate) // 1000  # chunk shift in samples
 
-                # calculate number of chunks
-                num_chunks = int((signal.shape[0] - chunk_len) / chunk_shift) + 1
-                chunks = signal.unfold(0, chunk_len, chunk_shift)
+                # Calculate number of chunks, including partial chunks at the end
+                num_chunks = max(1, int((signal.shape[0] - chunk_len + chunk_shift) / chunk_shift))
                 pout = torch.zeros(num_chunks, cfg.num_classes).to(signal.device)
 
+                # Pad the signal to ensure it's long enough for all chunks
+                padded_length = (num_chunks - 1) * chunk_shift + chunk_len
+                padded_signal = F.pad(signal, (0, max(0, padded_length - signal.shape[0])))
+
+                # Create chunks efficiently
+                chunks = padded_signal.unfold(0, chunk_len, chunk_shift)
+
+                # Process in batches
                 for i in range(0, num_chunks, cfg.batch_size):
                     batch = chunks[i:min(i+cfg.batch_size, num_chunks)]
-                    # Add an extra dimension to match the expected input shape
                     batch = batch.unsqueeze(1)  # Shape becomes [batch_size, 1, chunk_len]
                     pout[i:i+batch.shape[0]] = model(batch)
 
