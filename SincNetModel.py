@@ -155,7 +155,7 @@ class SincConv(nn.Module):
         self.min_band_hz = min_band_hz
 
         # Convert these to tensors
-        self.low_hz_ = torch.tensor(30.0)
+        self.low_hz_ = torch.tensor(float(self.min_low_hz))
         self.high_hz_ = torch.tensor(self.sample_rate / 2 - (self.min_low_hz + self.min_band_hz))
 
         # Initialize mel-spaced filterbanks
@@ -168,6 +168,7 @@ class SincConv(nn.Module):
         # Compute Hamming window (constant)
         window_ = torch.hamming_window(self.kernel_size, periodic=False)
         self.register_buffer('window_', window_)
+
         # Compute time axis (constant)
         n_ = (2 * torch.pi * torch.arange(-(self.kernel_size // 2), (self.kernel_size // 2) + 1)).unsqueeze(0) / self.sample_rate
         self.register_buffer('n_', n_)
