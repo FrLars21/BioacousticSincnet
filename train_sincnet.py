@@ -1,17 +1,16 @@
+import os
 import time
+from pathlib import Path
+import csv
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import sys
-import os
-from pathlib import Path
-import csv
 import soundfile as sf
-import librosa
 
-from sincnet_io import AudioDataset, create_dataloaders
 from SincNetModel import SincNetModel, SincNetConfig
+from torch.utils.data import DataLoader, TensorDataset
 
 # Set up device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,14 +27,15 @@ model = SincNetModel(cfg).to(device)
 #     print("torch.compile() is not available. Using the model without compilation.")
 
 class DataLoaderLite:
-    def __init__(self, batch_size, datadir, data_list, sample_rate, cw_len, cw_shift, is_training=True):
+    def __init__(self, batch_size, datadir, data_list, sample_rate, cw_len, augment_factor = 0.2):
+
+        self.augment_factor = augment_factor
+
         self.batch_size = batch_size
         self.datadir = Path(datadir)
         self.sample_rate = sample_rate
+
         self.chunk_length = int(cw_len * sample_rate / 1000)  # Convert ms to samples
-        self.chunk_shift = int(cw_shift * sample_rate / 1000)  # Convert ms to samples # NOTE THIS SEEMS TO BE NOT USED YET.
-        self.is_training = is_training
-        self.augment_factor = 0.2 if is_training else 0
 
         with open(data_list, 'r') as csvfile:
             self.data_list = list(csv.DictReader(csvfile))
@@ -69,10 +69,7 @@ class DataLoaderLite:
 
     def get_chunk(self, signal, start, end):
         if end - start > self.chunk_length:
-            if self.is_training:
-                start = torch.randint(start, end - self.chunk_length + 1, (1,)).item()
-            else:
-                start = start
+            start = torch.randint(start, end - self.chunk_length + 1, (1,)).item()
             chunk = signal[start:start + self.chunk_length]
         else:
             chunk = signal[start:end]
@@ -86,10 +83,7 @@ class DataLoaderLite:
         batch_inputs = []
         batch_labels = []
 
-        if self.is_training:
-            indices = torch.randperm(self.num_samples)[:self.batch_size]
-        else:
-            indices = range(self.batch_size)
+        indices = torch.randperm(self.num_samples)[:self.batch_size]
 
         for idx in indices:
             row = self.data_list[idx % self.num_samples]
@@ -100,26 +94,28 @@ class DataLoaderLite:
             
             chunk = self.get_chunk(signal, t_min, t_max)
 
-            if self.is_training:
-                # Apply random amplitude scaling
-                amp_scale = torch.FloatTensor(1).uniform_(1 - self.augment_factor, 1 + self.augment_factor)
-                chunk = chunk * amp_scale
+            # Apply random amplitude scaling
+            amp_scale = torch.FloatTensor(1).uniform_(1 - self.augment_factor, 1 + self.augment_factor)
+            chunk = chunk * amp_scale
 
             batch_inputs.append(chunk)
             batch_labels.append(int(row['label']))
 
         return torch.stack(batch_inputs).unsqueeze(1), torch.tensor(batch_labels, dtype=torch.long)
 
-    def get_iterator(self):
-        for i in range(0, len(self), self.batch_size):
-            yield self.next_batch()
-
 # Data loading
 datadir = Path("data")
 train_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_list="mod_all_classes_train_files.csv", 
-                              sample_rate=cfg.sample_rate, cw_len=cfg.cw_len, cw_shift=cfg.cw_shift, is_training=True)
-val_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_list="mod_all_classes_test_files.csv", 
-                            sample_rate=cfg.sample_rate, cw_len=cfg.cw_len, cw_shift=cfg.cw_shift, is_training=False)
+                              sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
+
+# Load the validation set
+inputs, labels = torch.load('validation_set.pt')
+
+# Create a TensorDataset from inputs and labels
+dataset = TensorDataset(inputs, labels)
+
+# Create a DataLoader with batch size of 32
+val_loader = DataLoader(dataset, batch_size=128, shuffle=False)
 
 # Print the number of parameters in the model
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -165,7 +161,7 @@ for epoch in range(num_epochs):
     num_val_batches = 0
     
     with torch.no_grad():
-        for batch_inputs, batch_labels in val_loader.get_iterator():
+        for batch_inputs, batch_labels in val_loader:
             batch_inputs, batch_labels = batch_inputs.to(device), batch_labels.to(device)
             outputs = model(batch_inputs)
             loss = criterion(outputs, batch_labels)

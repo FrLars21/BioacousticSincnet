@@ -4,3 +4,5 @@ __pycache__
 explore.ipynb
 trainlogs
 data
+validation_set.pt
+val.py
