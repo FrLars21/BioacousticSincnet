@@ -33,9 +33,9 @@ class SincNetConfig:
 
     # number of neurons
     fc_layers: List[int] = (
-        1024,
-        1024,
-        1024,
+        768,
+        768,
+        768,
     )
 
     fc_layers_batchnorm: bool = True
