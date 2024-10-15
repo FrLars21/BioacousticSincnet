@@ -162,7 +162,7 @@ for epoch in range(num_epochs):
 
     file_predictions = {}
     file_labels = {}
-    file_losses = {}
+    #file_losses = {}
 
     with torch.no_grad():
         for x, y, file_id in val_loader:
@@ -179,10 +179,10 @@ for epoch in range(num_epochs):
                 if fid not in file_predictions:
                     file_predictions[fid] = []
                     file_labels[fid] = []
-                    file_losses[fid] = []
+                    #file_losses[fid] = []
                 file_predictions[fid].append(frame_predictions[i])
                 file_labels[fid].append(y[i])
-                file_losses[fid].append(loss[i])
+                #file_losses[fid].append(loss[i])
 
     val_loss /= len(val_loader)
     val_frame_accuracy /= len(val_loader)
@@ -202,7 +202,7 @@ for epoch in range(num_epochs):
             file_correct += 1
         
         # Calculate average loss for the file
-        file_losses[fid] = torch.stack(file_losses[fid]).mean().item()
+        #file_losses[fid] = torch.stack(file_losses[fid]).mean().item()
 
     file_accuracy = file_correct / total_files
 
