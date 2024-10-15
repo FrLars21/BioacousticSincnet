@@ -113,7 +113,7 @@ inputs, labels = torch.load('validation_set.pt')
 
 # Create a TensorDataset from inputs and labels
 val_dataset = TensorDataset(inputs, labels)
-val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=False)
+val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=True)
 
 # Print the number of parameters in the model
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -156,21 +156,19 @@ for epoch in range(num_epochs):
     model.eval()
     val_loss = 0
     val_frame_accuracy = 0
-    num_val_batches = 0
-    
+
     with torch.no_grad():
-        for batch_inputs, batch_labels in val_loader:
-            batch_inputs, batch_labels = batch_inputs.to(device), batch_labels.to(device)
-            outputs = model(batch_inputs)
-            loss = criterion(outputs, batch_labels)
+        for x, y in val_loader:
+            x, y = x.to(device), y.to(device)
+            outputs = model(x)
+            loss = criterion(outputs, y)
             val_loss += loss.item()
             
             frame_predictions = torch.argmax(outputs, dim=1)
-            val_frame_accuracy += (frame_predictions == batch_labels).float().mean().item()
-            num_val_batches += 1
+            val_frame_accuracy += (frame_predictions == y).float().mean().item()
 
-        val_loss /= num_val_batches
-        val_frame_accuracy /= num_val_batches
+        val_loss /= len(val_loader)
+        val_frame_accuracy /= len(val_loader)
 
         if torch.cuda.is_available(): torch.cuda.synchronize()
         epoch_end_time = time.time()
