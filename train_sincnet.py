@@ -183,8 +183,9 @@ for epoch in range(num_epochs):
               f"Val Loss: {val_loss:.4f} | "
               f"Frame Accuracy: {val_frame_accuracy:.4f} | "
               f"Eval Time: {eval_duration:.2f} seconds | "
-              f"Epoch Time: {epoch_duration:.2f} seconds")
-            
+              f"Epoch Time: {epoch_duration:.2f} seconds | "
+              f"Validation examples: {len(val_loader.dataset)} ")
+        
         # log epoch metrics
         with open(log_file, "a") as f:
             f.write(f"{(epoch + 1) * batches_per_epoch} val {val_loss:.4f}\n")
