@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 
-def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, chunk_shift):
+def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, chunk_shift, device):
     """Pre-compute the validation set with corresponding labels."""
 
     all_chunks = []
@@ -14,7 +14,7 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
     with open(data_list_path, 'r') as csvfile:
         data_list = list(csv.DictReader(csvfile))
 
-    for row in data_list[:3]:  # Remove [:3] to process all rows
+    for row in data_list:
         label = int(row["label"])
         signal_path = datadir / row["file"]
         
@@ -24,7 +24,7 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
         if fs != sample_rate:
             raise ValueError(f"File {signal_path} has sample rate {fs}, expected {sample_rate}")
         
-        signal = torch.from_numpy(signal).float()
+        signal = torch.from_numpy(signal).float().to(device)
 
         # Ensure the signal is a 1D tensor
         if signal.dim() != 1:
@@ -61,7 +61,7 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
         chunks = (chunks - chunks.mean(dim=2, keepdim=True)) / (chunks.std(dim=2, keepdim=True) + 1e-8)
 
         all_chunks.append(chunks)
-        all_labels.append(torch.full((chunks.size(0),), label, dtype=torch.long))
+        all_labels.append(torch.full((chunks.size(0),), label, dtype=torch.long, device=device))
 
     # Concatenate all chunks and labels into single tensors
     if all_chunks and all_labels:
@@ -69,7 +69,7 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
         all_labels = torch.cat(all_labels, dim=0)  # Shape: (total_chunks,)
 
         # Save the chunks and labels as a .pt file
-        torch.save((all_chunks, all_labels), 'validation_set.pt')
+        torch.save((all_chunks.cpu(), all_labels.cpu()), 'validation_set.pt')
         
         print(f"Validation set saved as 'validation_set.pt'")
 
@@ -81,6 +81,10 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
     return all_chunks, all_labels
 
 if __name__ == "__main__":
+    # Set up device
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"Using device: {device}")
+
     datadir = Path("data")
     data_list = "mod_all_classes_test_files.csv"
     sample_rate = 44100
@@ -91,4 +95,4 @@ if __name__ == "__main__":
     chunk_length = int(sample_rate * cw_len / 1000)
     chunk_shift = int(sample_rate * cw_shift / 1000)
 
-    create_validation_set(data_list, datadir, sample_rate, chunk_length, chunk_shift)
+    create_validation_set(data_list, datadir, sample_rate, chunk_length, chunk_shift, device)
