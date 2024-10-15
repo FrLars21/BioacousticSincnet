@@ -20,93 +20,79 @@ print(f"Using device: {device}")
 cfg = SincNetConfig()
 model = SincNetModel(cfg).to(device)
 
+datadir = Path("data")
+
 # Remove or conditionally apply torch.compile()
 # if torch.__version__ >= "2.0" and sys.version_info < (3, 12):
 #     model = torch.compile(model)
 # else:
 #     print("torch.compile() is not available. Using the model without compilation.")
 
-class DataLoaderLite:
-    def __init__(self, batch_size, datadir, data_list, sample_rate, cw_len, augment_factor = 0.2):
+#-------------------------------------------
+cache = {}
+def load_audio(file_path, sample_rate = 44100):
+    if file_path in cache:
+        return cache[file_path]
 
-        self.augment_factor = augment_factor
+    signal, fs = sf.read(file_path)
 
-        self.batch_size = batch_size
-        self.datadir = Path(datadir)
-        self.sample_rate = sample_rate
+    if fs != sample_rate:
+        raise ValueError(f"File {file_path} has sample rate {fs}, expected {sample_rate}")
+    
+    signal = torch.from_numpy(signal).float().to(device)
 
-        self.chunk_length = int(cw_len * sample_rate / 1000)  # Convert ms to samples
+    # Ensure the signal is a 1D tensor
+    if signal.dim() != 1:
+        raise ValueError(f"Signal must be a 1D tensor. Found {signal.dim()}D tensor.")
+    
+    # Normalize the signal to be between -1 and 1
+    signal = signal / torch.abs(signal.max())
 
-        with open(data_list, 'r') as csvfile:
-            self.data_list = list(csv.DictReader(csvfile))
-        self.num_samples = len(self.data_list)
+    return signal
+
+def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classes_train_files.csv", cw_len=10, sample_rate = 44100, augment_factor = 0.2):
+    datadir = Path(datadir)
+    chunk_len = (cw_len * sample_rate) // 1000 # chunk length in samples
+    
+    with open(data_list, 'r') as csvfile:
+        data_list = list(csv.DictReader(csvfile))
+    
+    # select batch_size random files from the data_list
+    indices = torch.randperm(len(data_list))[:batch_size]
+
+    x = []
+    y = []
+
+    for idx in indices:
+        row = data_list[idx]
+        file_path = datadir / row['file']
+        signal = load_audio(file_path)
         
-        self.cache = {}  # Cache for loaded audio files
-
-    def __len__(self):
-        return self.num_samples
-
-    def load_audio(self, file_path):
-        if file_path not in self.cache:
-            signal, fs = sf.read(str(file_path))
-            
-            # Ensure the signal is single-channel
-            if signal.ndim == 2:
-                print(f"WARNING: converting stereo to mono: {file_path}")
-                signal = signal.mean(axis=1)  # Convert stereo to mono by averaging channels
-            elif signal.ndim > 2:
-                raise ValueError(f"Unexpected number of dimensions in audio file: {file_path}")
-
-            # Convert to tensor
-            signal = torch.tensor(signal, dtype=torch.float32)
-            
-            # Normalize signal
-            signal = signal / torch.abs(signal.max())
-            
-            self.cache[file_path] = signal
-
-        return self.cache[file_path]
-
-    def get_chunk(self, signal, start, end):
-        if end - start > self.chunk_length:
-            start = torch.randint(start, end - self.chunk_length + 1, (1,)).item()
-            chunk = signal[start:start + self.chunk_length]
+        # calculate start and end of vocalization annotation
+        t_min, t_max = int(float(row['start']) * sample_rate), int(float(row['start']) * sample_rate + float(row['length']) * sample_rate)
+        
+        # if the vocalization is longer than the chunk length, randomly select a start point
+        if t_max - t_min > chunk_len:
+            start = torch.randint(t_min, t_max - chunk_len + 1, (1,)).item()
+            chunk = signal[start:start + chunk_len]
         else:
-            chunk = signal[start:end]
+            chunk = signal[t_min:t_max]
             # Pad if necessary
-            if len(chunk) < self.chunk_length:
-                chunk = F.pad(chunk, (0, self.chunk_length - len(chunk)))
+            if len(chunk) < chunk_len:
+                chunk = F.pad(chunk, (0, chunk_len - len(chunk)))
 
-        return chunk
+        # Apply random amplitude scaling
+        amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor)
+        chunk = chunk * amp_scale
 
-    def next_batch(self):
-        batch_inputs = []
-        batch_labels = []
+        x.append(chunk)
+        y.append(int(row['label']))
 
-        indices = torch.randperm(self.num_samples)[:self.batch_size]
+    return torch.stack(x).unsqueeze(1), torch.tensor(y, dtype=torch.long)
 
-        for idx in indices:
-            row = self.data_list[idx % self.num_samples]
-            file_path = self.datadir / row['file']
-            signal = self.load_audio(file_path)
-
-            t_min, t_max = int(float(row['start']) * self.sample_rate), int(float(row['start']) * self.sample_rate + float(row['length']) * self.sample_rate)
-            
-            chunk = self.get_chunk(signal, t_min, t_max)
-
-            # Apply random amplitude scaling
-            amp_scale = torch.FloatTensor(1).uniform_(1 - self.augment_factor, 1 + self.augment_factor)
-            chunk = chunk * amp_scale
-
-            batch_inputs.append(chunk)
-            batch_labels.append(int(row['label']))
-
-        return torch.stack(batch_inputs).unsqueeze(1), torch.tensor(batch_labels, dtype=torch.long)
-
-# Data loading
-datadir = Path("data")
-train_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_list="mod_all_classes_train_files.csv", 
-                              sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
+# # Data loading
+# train_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_list="mod_all_classes_train_files.csv", 
+#                               sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
 
 # Load the validation set
 inputs, labels, file_ids = torch.load('validation_set.pt')
@@ -138,7 +124,7 @@ for epoch in range(num_epochs):
 
     # Training loop
     for batch_idx in range(batches_per_epoch):
-        x, y = train_loader.next_batch()
+        x, y = create_train_batch(batch_size=cfg.batch_size, sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
         outputs = model(x)

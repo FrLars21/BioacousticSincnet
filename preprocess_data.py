@@ -42,7 +42,7 @@ def preprocess_train_data(data_list_path, datadir, device, sample_rate = 44100):
     print(f"Train set saved as 'train_set.pt'")
     print(all_file_ids.shape)
     print(all_labels.shape)
-    print(all_signals.shape)
+    print(len(all_signals))
 
     return all_file_ids, all_labels, all_signals
 
