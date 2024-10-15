@@ -21,12 +21,12 @@ class SincNetConfig:
 
     # number of filters, kernel size (filter length), stride
     conv_layers: List[Tuple[int, int, int]] = (
-        (127, 251, 1),
+        (80, 125, 1),
         (60, 5, 1),
         (60, 5, 1),
     )
     # set any of these < 1 to disable max pooling for the conv layer
-    conv_max_pool_len: Tuple[int] = (5, 5, 5)
+    conv_max_pool_len: Tuple[int] = (3, 3, 3)
 
     # if batchnorm is not used, layernorm is applied instead
     conv_layers_batchnorm: bool = True
