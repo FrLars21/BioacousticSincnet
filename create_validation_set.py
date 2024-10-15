@@ -90,7 +90,7 @@ if __name__ == "__main__":
     sample_rate = 44100
 
     cw_len = 18
-    cw_shift = 1
+    cw_shift = 6
 
     chunk_length = int(sample_rate * cw_len / 1000)
     chunk_shift = int(sample_rate * cw_shift / 1000)
