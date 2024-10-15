@@ -161,7 +161,7 @@ for epoch in range(num_epochs):
             # calculate number of chunks
             num_chunks = int((signal.shape[0] - chunk_len) / chunk_shift) + 1
             chunks = signal.unfold(0, chunk_len, chunk_shift).transpose(0, 1)
-            pout = torch.zeros(num_chunks, model.output_size).to(signal.device)
+            pout = torch.zeros(num_chunks, cfg.num_classes).to(signal.device)
 
             for i in range(0, num_chunks, cfg.batch_size):
                 batch = chunks[i:min(i+cfg.batch_size, num_chunks)]
