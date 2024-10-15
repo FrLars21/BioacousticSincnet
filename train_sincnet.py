@@ -75,10 +75,11 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
         
         # if the vocalization is longer than the chunk length, randomly select a start point
         if t_max - t_min > chunk_len:
-            start = torch.randint(t_min, t_max - chunk_len + 1, (1,)).item()
-            chunk = signal[start:start + chunk_len]
+            rand_start = torch.randint(t_min, t_max - chunk_len).item()
+            chunk = signal[rand_start:rand_start+chunk_len]
         else:
             chunk = signal[t_min:t_max]
+            print("here")
             # Pad if necessary
             if len(chunk) < chunk_len:
                 # print(f"Padding chunk {file_path} which was {len(chunk) * 1000 / sample_rate:.2f} ms long")
@@ -180,6 +181,8 @@ for epoch in range(num_epochs):
                 # Calculate sentence-level prediction
                 sentence_pred = torch.argmax(pout.sum(dim=0))
                 sentence_error = (sentence_pred != lab[0]).float()
+
+                # NOTE: VAL LOSS IS PROBABLY COOKED BECAUSE WE ARE USING THE WHOLE FILE (NOT JUST THE ANNOTATED PART)
 
                 total_loss += loss.item()
                 total_frame_error += frame_error.item()
