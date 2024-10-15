@@ -107,7 +107,7 @@ with open(log_file, "w") as f: # open for writing to clear the file
     pass
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.AdamW(model.parameters())
+optimizer = optim.AdamW(model.parameters(), weight_decay=0.01)
 
 num_epochs = cfg.num_epochs
 batches_per_epoch = cfg.batches_per_epoch
