@@ -10,7 +10,6 @@ import torch.optim as optim
 import soundfile as sf
 
 from SincNetModel import SincNetModel, SincNetConfig
-from torch.utils.data import DataLoader, TensorDataset
 
 # Set up device
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

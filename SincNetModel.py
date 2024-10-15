@@ -10,7 +10,7 @@ class SincNetConfig:
     """The default values are adapted from Bravo Sanchez et al. (2021) tuned for NIPS4Bplus"""
 
     # Optimization
-    batch_size: int = 128
+    batch_size: int = 256
     batches_per_epoch: int = 80
     num_epochs: int = 400
 
