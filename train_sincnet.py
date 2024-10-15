@@ -168,9 +168,8 @@ for epoch in range(num_epochs):
                 chunks = padded_signal.unfold(0, chunk_len, chunk_shift)
 
                 # Process in batches
-                val_batch_size = 512
-                for i in range(0, num_chunks, val_batch_size):
-                    batch = chunks[i:min(i+val_batch_size, num_chunks)]
+                for i in range(0, num_chunks, cfg.batch_size):
+                    batch = chunks[i:min(i+cfg.batch_size, num_chunks)]
                     batch = batch.unsqueeze(1)  # Shape becomes [batch_size, 1, chunk_len]
                     pout[i:i+batch.shape[0]] = model(batch)
 
