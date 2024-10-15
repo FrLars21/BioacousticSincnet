@@ -154,6 +154,10 @@ for epoch in range(num_epochs):
                 label = int(val_file['label'])
                 signal = load_audio(datadir / val_file['file'], device, cfg.sample_rate)
 
+                # only use the annotated part of the signal
+                t_min, t_max = int(float(val_file['start']) * cfg.sample_rate), int(float(val_file['start']) * cfg.sample_rate + float(val_file['length']) * cfg.sample_rate)
+                signal = signal[t_min:t_max]
+
                 chunk_len = (cfg.cw_len * cfg.sample_rate) // 1000  # chunk length in samples
 
                 # Handle case where signal is shorter than chunk_len
