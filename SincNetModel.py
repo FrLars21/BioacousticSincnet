@@ -10,14 +10,14 @@ class SincNetConfig:
     """The default values are adapted from Bravo Sanchez et al. (2021) tuned for NIPS4Bplus"""
 
     # Optimization
-    batch_size: int = 256
+    batch_size: int = 128
     batches_per_epoch: int = 80
     num_epochs: int = 400
 
     # Windowing parameters
     sample_rate: int = 44100
     cw_len: int = 18 # window length in ms
-    cw_shift: int = 6 # overlap in ms
+    cw_shift: int = 1 # overlap in ms
 
     # number of filters, kernel size, stride
     conv_layers: List[Tuple[int, int, int]] = (
