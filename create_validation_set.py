@@ -35,10 +35,14 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
 
         signal_length = signal.size(0)
 
+        # Determine if we're using overlap
+        overlap = chunk_shift != 0
+        effective_shift = chunk_shift if overlap else chunk_length
+
         # Calculate the number of chunks
-        num_chunks = 1 + (signal_length - chunk_length) // chunk_shift
-        if (signal_length - chunk_length) % chunk_shift != 0:
-            num_chunks += 1  # Include the last incomplete chunk
+        num_chunks = (signal_length - chunk_length) // effective_shift + 1
+        if overlap and (signal_length - chunk_length) % effective_shift != 0:
+            num_chunks += 1  # Include the last incomplete chunk when overlapping
 
         if num_chunks <= 0:
             # Signal is shorter than one chunk; pad it
@@ -46,13 +50,13 @@ def create_validation_set(data_list_path, datadir, sample_rate, chunk_length, ch
             chunks = padded_signal.unsqueeze(0)  # Shape: (1, chunk_length)
         else:
             # Calculate the total required length after padding
-            total_length = (num_chunks - 1) * chunk_shift + chunk_length
+            total_length = (num_chunks - 1) * effective_shift + chunk_length
             if signal_length < total_length:
                 padding_needed = total_length - signal_length
                 signal = F.pad(signal, (0, padding_needed), 'constant', 0)
 
             # Use unfold to create the chunks
-            chunks = signal.unfold(0, chunk_length, chunk_shift)  # Shape: (num_chunks, chunk_length)
+            chunks = signal.unfold(0, chunk_length, effective_shift)  # Shape: (num_chunks, chunk_length)
 
         # Reshape chunks to (num_chunks, 1, chunk_length)
         chunks = chunks.unsqueeze(1)
@@ -90,7 +94,7 @@ if __name__ == "__main__":
     sample_rate = 44100
 
     cw_len = 18
-    cw_shift = 6
+    cw_shift = 0
 
     chunk_length = int(sample_rate * cw_len / 1000)
     chunk_shift = int(sample_rate * cw_shift / 1000)
