@@ -112,10 +112,8 @@ train_loader = DataLoaderLite(batch_size=cfg.batch_size, datadir=datadir, data_l
 inputs, labels = torch.load('validation_set.pt')
 
 # Create a TensorDataset from inputs and labels
-dataset = TensorDataset(inputs, labels)
-
-# Create a DataLoader with batch size of 32
-val_loader = DataLoader(dataset, batch_size=128, shuffle=False)
+val_dataset = TensorDataset(inputs, labels)
+val_loader = DataLoader(val_dataset, batch_size=cfg.batch_size, shuffle=False)
 
 # Print the number of parameters in the model
 trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
