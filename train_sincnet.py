@@ -217,7 +217,7 @@ for epoch in range(num_epochs):
           f"Frame Accuracy: {val_frame_accuracy:.4f} | "
           f"File Accuracy: {file_accuracy:.4f} | "
           f"Eval Time: {eval_duration:.2f} seconds | "
-          f"Epoch Time: {epoch_duration:.2f} seconds | "
+          f"Epoch Time: {epoch_duration:.2f} seconds | ")
     
     # log epoch metrics
     with open(log_file, "a") as f:
