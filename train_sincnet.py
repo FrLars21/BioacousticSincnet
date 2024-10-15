@@ -39,7 +39,7 @@ def load_audio(file_path, sample_rate = 44100):
     if fs != sample_rate:
         raise ValueError(f"File {file_path} has sample rate {fs}, expected {sample_rate}")
     
-    signal = torch.from_numpy(signal).float().to(device)
+    signal = torch.from_numpy(signal).float()#.to(device)
 
     # Ensure the signal is a 1D tensor
     if signal.dim() != 1:
