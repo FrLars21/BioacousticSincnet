@@ -5,46 +5,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-@dataclass
-class SincNetConfig:
-    """The default values are adapted from Bravo Sanchez et al. (2021) tuned for NIPS4Bplus"""
-
-    # Optimization
-    batch_size: int = 256
-    batches_per_epoch: int = 80
-    num_epochs: int = 400
-
-    # Windowing parameters
-    sample_rate: int = 44100
-    cw_len: int = 20 # window length in ms
-    cw_shift: int = 1 # overlap in ms
-
-    # number of filters, kernel size (filter length), stride
-    conv_layers: List[Tuple[int, int, int]] = (
-        (80, 125, 1),
-        (60, 5, 1),
-        (60, 5, 1),
-    )
-    # set any of these < 1 to disable max pooling for the conv layer
-    conv_max_pool_len: Tuple[int] = (3, 3, 3)
-
-    # if batchnorm is not used, layernorm is applied instead
-    conv_layers_batchnorm: bool = True
-
-    # number of neurons
-    fc_layers: List[int] = (
-        768,
-        768,
-        768,
-    )
-
-    fc_layers_batchnorm: bool = True
-
-    # number of classes
-    num_classes: int = 87
+from train_sincnet import SincNetConfig
 
 class SincNetModel(nn.Module):
-    """A model of 3 components: Convolution, MLP, Linear classification"""
     def __init__(self, cfg: SincNetConfig):
         super().__init__()
 
@@ -66,7 +29,6 @@ class SincNetModel(nn.Module):
                     nn.MaxPool1d(cfg.conv_max_pool_len[i]) if cfg.conv_max_pool_len[i] > 1 else nn.Identity(),
                     ChannelwiseLayerNorm(out_channels) if not cfg.conv_layers_batchnorm else nn.BatchNorm1d(out_channels),
                     nn.LeakyReLU(),
-                    nn.Dropout(0.3), # experimental
                 ))
             else:
                 in_channels = cfg.conv_layers[i-1][0]

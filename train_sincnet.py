@@ -2,32 +2,72 @@ import os
 import time
 from pathlib import Path
 import csv
+from dataclasses import dataclass
+from typing import List, Tuple
+
+import soundfile as sf
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import soundfile as sf
 
 from SincNetModel import SincNetModel, SincNetConfig
 
-# Set up device
+
+torch.set_float32_matmul_precision('high')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
-# Set up model and configuration
+# --- SETUP MODEL AND CONFIGURATION -------------------------------------------------------------------------------
+@dataclass
+class SincNetConfig:
+
+    # Data
+    datadir: str = "data"
+
+    # Optimization
+    batch_size: int = 256
+    batches_per_epoch: int = 80
+    num_epochs: int = 400
+
+    # Windowing parameters
+    sample_rate: int = 44100
+    cw_len: int = 20 # window length in ms
+    cw_shift: int = 1 # overlap in ms
+
+    # number of filters, kernel size (filter length), stride
+    conv_layers: List[Tuple[int, int, int]] = (
+        (80, 125, 1),
+        (60, 5, 1),
+        (60, 5, 1),
+    )
+    # set any of these <= 1 to disable max pooling for the conv layer
+    conv_max_pool_len: Tuple[int] = (1, 3, 3)
+
+    # if batchnorm is not used, layernorm is applied instead
+    conv_layers_batchnorm: bool = True
+
+    # number of neurons
+    fc_layers: List[int] = (
+        768,
+        768,
+        768,
+    )
+
+    fc_layers_batchnorm: bool = True
+
+    # number of classes
+    num_classes: int = 87
+
 cfg = SincNetConfig()
 model = SincNetModel(cfg).to(device)
+print(f"Total number of trainable parameters in the model: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
+model = torch.compile(model)
 
-datadir = Path("data")
+datadir = Path(cfg.datadir)
 
-# Remove or conditionally apply torch.compile()
-# if torch.__version__ >= "2.0" and sys.version_info < (3, 12):
-#     model = torch.compile(model)
-# else:
-#     print("torch.compile() is not available. Using the model without compilation.")
-
-#-------------------------------------------
+# --- SETUP DATA -----------------------------------------------------------------------------------------------
 cache = {}
 def load_audio(file_path, device, sample_rate=44100):
     if file_path in cache:
@@ -98,10 +138,7 @@ def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classe
 with open("mod_all_classes_test_files.csv", 'r') as csvfile:
     test_data_list = list(csv.DictReader(csvfile))
 
-# Print the number of parameters in the model
-trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"Total number of trainable parameters in the model: {trainable_params:,}")
-
+# --- TRAINING --------------------------------------------------------------------------------------------------
 log_file = os.path.join(os.path.dirname(__file__), "trainlog.txt")
 with open(log_file, "w") as f: # open for writing to clear the file
     pass
@@ -110,17 +147,14 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
 #scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, min_lr=1e-5)
 
-num_epochs = cfg.num_epochs
-batches_per_epoch = cfg.batches_per_epoch
-
-for epoch in range(num_epochs):
+for epoch in range(cfg.num_epochs):
     model.train()
     train_loss = 0
     
     epoch_start_time = time.time()
 
     # Training loop
-    for batch_idx in range(batches_per_epoch):
+    for batch_idx in range(cfg.batches_per_epoch):
         x, y = create_train_batch(batch_size=cfg.batch_size, sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
@@ -132,9 +166,9 @@ for epoch in range(num_epochs):
 
         # log train loss per step
         with open(log_file, "a") as f:
-            f.write(f"{epoch * batches_per_epoch + batch_idx} train {loss.item():.4f}\n")
+            f.write(f"{epoch * cfg.batches_per_epoch + batch_idx} train {loss.item():.4f}\n")
     
-    avg_train_loss = train_loss / batches_per_epoch
+    avg_train_loss = train_loss / cfg.batches_per_epoch
 
     #if not epoch % 8 == 0:
     if not True:
@@ -189,8 +223,6 @@ for epoch in range(num_epochs):
                 sentence_pred = torch.argmax(pout.sum(dim=0))
                 sentence_error = (sentence_pred != lab[0]).float()
 
-                # NOTE: VAL LOSS IS PROBABLY COOKED BECAUSE WE ARE USING THE WHOLE FILE (NOT JUST THE ANNOTATED PART)
-
                 total_loss += loss.item()
                 total_frame_error += frame_error.item()
                 total_sent_error += sentence_error.item()
@@ -206,7 +238,7 @@ for epoch in range(num_epochs):
         eval_duration = epoch_end_time - eval_start_time
         epoch_duration = epoch_end_time - epoch_start_time
         
-        print(f"Epoch {epoch+1}/{num_epochs} | "
+        print(f"Epoch {epoch+1}/{cfg.num_epochs} | "
             f"Train Loss: {avg_train_loss:.4f} | "
             f"Val Loss: {total_loss:.4f} | "
             f"Frame Accuracy: {1 - total_frame_error:.4f} | "
@@ -217,4 +249,4 @@ for epoch in range(num_epochs):
         
         # log epoch metrics
         with open(log_file, "a") as f:
-            f.write(f"{(epoch + 1) * batches_per_epoch} val {total_loss:.4f}\n")
+            f.write(f"{(epoch + 1) * cfg.batches_per_epoch} val {total_loss:.4f}\n")
