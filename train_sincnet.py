@@ -21,7 +21,7 @@ if device.type == 'cuda':
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
 
-scaler = amp.GradScaler(enabled=True, dtype=torch.bfloat16)
+scaler = amp.GradScaler()
 
 print(f"Using device: {device}")
 
