@@ -42,7 +42,7 @@ class SincNetConfig:
         (60, 5, 1),
     )
     # set any of these <= 1 to disable max pooling for the conv layer
-    conv_max_pool_len: Tuple[int] = (1, 3, 3)
+    conv_max_pool_len: Tuple[int] = (3, 3, 3)
 
     # if batchnorm is not used, layernorm is applied instead
     conv_layers_batchnorm: bool = True
@@ -51,7 +51,7 @@ class SincNetConfig:
     fc_layers: List[int] = (
         768,
         768,
-        768,
+        1024,
     )
 
     fc_layers_batchnorm: bool = True
@@ -241,9 +241,9 @@ for epoch in range(cfg.num_epochs):
         print(f"Epoch {epoch+1}/{cfg.num_epochs} | "
             f"Train Loss: {avg_train_loss:.4f} | "
             f"Val Loss: {total_loss:.4f} | "
-            f"Frame Accuracy: {1 - total_frame_error:.4f} | "
             f"Sentence Accuracy: {1 - total_sent_error:.4f} | "
-            f"Eval Time: {eval_duration:.2f} seconds | "
+            f"Frame Accuracy: {1 - total_frame_error:.4f} | "
+            #f"Eval Time: {eval_duration:.2f} seconds | "
             f"Epoch Time: {epoch_duration:.2f} seconds | ")
             #f"LR: {scheduler.get_last_lr()[0]:.8f}")
         
