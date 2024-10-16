@@ -12,8 +12,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from SincNetModel import SincNetModel, SincNetConfig
-
+from SincNetModel import SincNetModel
 
 torch.set_float32_matmul_precision('high')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
