@@ -11,11 +11,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torch.cuda.amp as amp
 
 from SincNetModel import SincNetModel
 
 torch.set_float32_matmul_precision('high')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+if device.type == 'cuda':
+    torch.backends.cuda.matmul.allow_tf32 = True
+    torch.backends.cudnn.allow_tf32 = True
+
+scaler = amp.GradScaler(enabled=True, dtype=torch.bfloat16)
+
 print(f"Using device: {device}")
 
 # --- SETUP MODEL AND CONFIGURATION -------------------------------------------------------------------------------
@@ -158,10 +165,14 @@ for epoch in range(cfg.num_epochs):
         x, y = create_train_batch(batch_size=cfg.batch_size, sample_rate=cfg.sample_rate, cw_len=cfg.cw_len)
         x, y = x.to(device), y.to(device)
         optimizer.zero_grad()
-        outputs = model(x)
-        loss = criterion(outputs, y)
-        loss.backward()
-        optimizer.step()
+        
+        with amp.autocast(dtype=torch.bfloat16):
+            outputs = model(x)
+            loss = criterion(outputs, y)
+        
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         train_loss += loss.item()
 
         # log train loss per step
