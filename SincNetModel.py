@@ -5,10 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from train_sincnet import SincNetConfig
-
 class SincNetModel(nn.Module):
-    def __init__(self, cfg: SincNetConfig):
+    def __init__(self, cfg):
         super().__init__()
 
         self.cfg = cfg

@@ -12,6 +12,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
+from SincNetModel import SincNetModel
+
 torch.set_float32_matmul_precision('high')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -59,7 +61,6 @@ class SincNetConfig:
 
 cfg = SincNetConfig()
 
-from SincNetModel import SincNetModel
 model = SincNetModel(cfg).to(device)
 print(f"Total number of trainable parameters in the model: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
 model = torch.compile(model)
