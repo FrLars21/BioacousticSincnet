@@ -1,8 +1,5 @@
 .DS_Store
-nips4bplus
 __pycache__
 explore.ipynb
 trainlogs
 data
-validation_set.pt
-val.py
