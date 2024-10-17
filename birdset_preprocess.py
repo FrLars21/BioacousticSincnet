@@ -18,10 +18,10 @@ def map_first_five(sample):
     return sample
 
 # train is now available as an array that can be transformed into a spectrogram for example 
-train_ds = train_ds.map(map_first_five, batch_size=1000, num_proc=2)
+train_ds = train_ds.map(map_first_five, batch_size=1000, num_proc=4)
 
 # the test_5s dataset is already divided into 5-second chunks where each sample can have zero, one or multiple bird vocalizations (ebird_code labels)
-test_ds = test_ds.map(map_first_five, batch_size=1000, num_proc=2)
+test_ds = test_ds.map(map_first_five, batch_size=1000, num_proc=4)
 
 print(train_ds)
 print(test_ds)
