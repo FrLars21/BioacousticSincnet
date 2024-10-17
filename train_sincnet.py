@@ -4,14 +4,15 @@ from pathlib import Path
 import csv
 from dataclasses import dataclass
 from typing import List, Tuple
-
-import soundfile as sf
+import yaml
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.cuda.amp as amp
+
+import torchaudio
 
 from SincNetModel import SincNetModel
 
@@ -66,7 +67,8 @@ class SincNetConfig:
     # number of classes
     num_classes: int = 87
 
-cfg = SincNetConfig()
+with open('config.yml', 'r') as f: cfg_dict = yaml.safe_load(f)
+cfg = SincNetConfig(**{k: v for k, v in cfg_dict.items() if k in SincNetConfig.__annotations__})
 
 model = SincNetModel(cfg).to(device)
 print(f"Total number of trainable parameters in the model: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
@@ -80,17 +82,24 @@ def load_audio(file_path, device, sample_rate=44100):
     if file_path in cache:
         return cache[file_path]
 
-    signal, fs = sf.read(file_path)
+    # Load audio using torchaudio
+    signal, fs = torchaudio.load(file_path)
 
     if fs != sample_rate:
         raise ValueError(f"File {file_path} has sample rate {fs}, expected {sample_rate}")
-    
-    signal = torch.from_numpy(signal).float().to(device)
+        #resampler = torchaudio.transforms.Resample(fs, sample_rate)
+        #signal = resampler(signal)
+
+    # Move to the specified device
+    signal = signal.to(device)
 
     # Ensure the signal is a 1D tensor
     if signal.dim() != 1:
-        raise ValueError(f"Signal must be a 1D tensor. Found {signal.dim()}D tensor.")
-    
+        if signal.shape[0] == 1:
+            signal = signal.squeeze(0)
+        else:
+            raise ValueError(f"Signal must be a 1D tensor. Found {signal.dim()}D tensor.")
+
     # Normalize the signal to be between -1 and 1
     signal = signal / torch.abs(signal.max())
 

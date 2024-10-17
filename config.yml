@@ -1,0 +1,24 @@
+# Data
+datadir: "data"
+num_classes: 87
+sample_rate: 44100
+
+# Training
+batch_size: 128
+batches_per_epoch: 80
+num_epochs: 400
+
+# Windowing parameters
+cw_len: 16
+
+# Convolutional layers
+conv_layers:
+  - [80, 125, 1]
+  - [60, 5, 1]
+  - [60, 5, 1]
+conv_max_pool_len: [3, 3, 3]
+conv_layers_batchnorm: true
+
+# Fully connected layers
+fc_layers: [512, 512, 1024]
+fc_layers_batchnorm: true
