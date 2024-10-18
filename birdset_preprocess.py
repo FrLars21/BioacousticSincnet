@@ -1,7 +1,7 @@
 from datasets import load_dataset, Audio
 
-train_ds = load_dataset("DBD-research-group/BirdSet", "HSN", split="train")
-test_ds = load_dataset("DBD-research-group/BirdSet", "HSN", split="test_5s")
+train_ds = load_dataset("DBD-research-group/BirdSet", "NBP", split="train")
+test_ds = load_dataset("DBD-research-group/BirdSet", "NBP", split="test_5s")
 
 # the dataset comes without an automatic Audio casting, this has to be enabled via huggingface
 # this means that each time a sample is called, it is decoded (which may take a while if done for the complete dataset)
