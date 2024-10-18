@@ -70,89 +70,40 @@ class SincNetConfig:
 with open('config.yml', 'r') as f: cfg_dict = yaml.safe_load(f)
 cfg = SincNetConfig(**{k: v for k, v in cfg_dict.items() if k in SincNetConfig.__annotations__})
 
+# --- HF datasets -----------------------------------------------------------------------------------------------
+from datasets import load_dataset, Audio
+from torch.utils.data import DataLoader
+
+train_ds = load_dataset("DBD-research-group/BirdSet", "NBP", split="train")
+test_ds = load_dataset("DBD-research-group/BirdSet", "NBP", split="test_5s")
+
+train_ds = train_ds.cast_column("audio", Audio(sampling_rate=32000))
+test_ds = test_ds.cast_column("audio", Audio(sampling_rate=32000))
+
+def map_first_five(sample):
+    max_length = 160000 # 32_000hz*5sec
+    sample["audio"]["array"] =  sample["audio"]["array"][:max_length]
+    return sample
+
+train_ds = train_ds.map(map_first_five, batch_size=1000, num_proc=4)
+test_ds = test_ds.map(map_first_five, batch_size=1000, num_proc=4)
+
+train_ds = train_ds.with_format("torch")
+test_ds = test_ds.with_format("torch")
+
+train_loader = DataLoader(train_ds, batch_size=cfg.batch_size)
+test_loader = DataLoader(test_ds, batch_size=cfg.batch_size)
+
+print(next(iter(train_loader)))
+print(next(iter(test_loader)))
+
+import sys; sys.exit()
+
+# --- SETUP MODEL -----------------------------------------------------------------------------------------------
+
 model = SincNetModel(cfg).to(device)
 print(f"Total number of trainable parameters in the model: {sum(p.numel() for p in model.parameters() if p.requires_grad):,}")
 model = torch.compile(model)
-
-datadir = Path(cfg.datadir)
-
-# --- SETUP DATA -----------------------------------------------------------------------------------------------
-cache = {}
-def load_audio(file_path, device, sample_rate=44100):
-    if file_path in cache:
-        return cache[file_path]
-
-    # Load audio using torchaudio
-    signal, fs = torchaudio.load(file_path)
-
-    if fs != sample_rate:
-        raise ValueError(f"File {file_path} has sample rate {fs}, expected {sample_rate}")
-        #resampler = torchaudio.transforms.Resample(fs, sample_rate)
-        #signal = resampler(signal)
-
-    # Move to the specified device
-    signal = signal.to(device)
-
-    # Ensure the signal is a 1D tensor
-    if signal.dim() != 1:
-        if signal.shape[0] == 1:
-            signal = signal.squeeze(0)
-        else:
-            raise ValueError(f"Signal must be a 1D tensor. Found {signal.dim()}D tensor.")
-
-    # Normalize the signal to be between -1 and 1
-    signal = signal / torch.abs(signal.max())
-
-    # Store the processed signal in the cache
-    cache[file_path] = signal
-
-    return signal
-
-def create_train_batch(batch_size=128, datadir="data", data_list="mod_all_classes_train_files.csv", cw_len=10, sample_rate = 44100, augment_factor = 0.2):
-    datadir = Path(datadir)
-    chunk_len = (cw_len * sample_rate) // 1000 # chunk length in samples
-    
-    with open(data_list, 'r') as csvfile:
-        data_list = list(csv.DictReader(csvfile))
-    
-    # select batch_size random files from the data_list
-    indices = torch.randperm(len(data_list))[:batch_size]
-
-    x = []
-    y = []
-
-    for idx in indices:
-        row = data_list[idx]
-        file_path = datadir / row['file']
-        signal = load_audio(file_path, device, sample_rate)
-        
-        # calculate start and end of vocalization annotation
-        t_min, t_max = int(float(row['start']) * sample_rate), int(float(row['start']) * sample_rate + float(row['length']) * sample_rate)
-        
-        # if the vocalization is longer than the chunk length, randomly select a start point
-        if t_max - t_min > chunk_len:
-            rand_start = torch.randint(t_min, t_max - chunk_len, (1,)).item()
-            chunk = signal[rand_start:rand_start+chunk_len]
-        else:
-            # TODO: fix this to sample from the middle of the vocalization instead of padding
-            # but not that important, since it is around 50 examples per epoch
-            chunk = signal[t_min:t_max]
-            # Pad if necessary
-            if len(chunk) < chunk_len:
-                # print(f"Padding chunk {file_path} which was {len(chunk) * 1000 / sample_rate:.2f} ms long")
-                chunk = F.pad(chunk, (0, chunk_len - len(chunk)))
-
-        # Apply random amplitude scaling
-        amp_scale = torch.FloatTensor(1).uniform_(1 - augment_factor, 1 + augment_factor).to(device)
-        chunk = chunk * amp_scale
-
-        x.append(chunk)
-        y.append(int(row['label']))
-
-    return torch.stack(x).unsqueeze(1), torch.tensor(y, dtype=torch.long)
-
-with open("mod_all_classes_test_files.csv", 'r') as csvfile:
-    test_data_list = list(csv.DictReader(csvfile))
 
 # --- TRAINING --------------------------------------------------------------------------------------------------
 log_file = os.path.join(os.path.dirname(__file__), "trainlog.txt")
@@ -161,7 +112,6 @@ with open(log_file, "w") as f: # open for writing to clear the file
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.AdamW(model.parameters(), lr=1e-3, weight_decay=0.01)
-#scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=5, min_lr=1e-5)
 
 for epoch in range(cfg.num_epochs):
     model.train()
@@ -201,9 +151,7 @@ for epoch in range(cfg.num_epochs):
         # Validation loop
         model.eval()
 
-        total_loss = 0
-        total_frame_error = 0
-        total_sent_error = 0
+        val_loss = 0
 
         with torch.no_grad():
             for val_file in test_data_list:
@@ -243,15 +191,13 @@ for epoch in range(cfg.num_epochs):
                 sentence_pred = torch.argmax(pout.sum(dim=0))
                 sentence_error = (sentence_pred != lab[0]).float()
 
-                total_loss += loss.item()
+                val_loss += loss.item()
                 total_frame_error += frame_error.item()
                 total_sent_error += sentence_error.item()
 
-        total_loss /= len(test_data_list)
+        val_loss /= len(test_data_list)
         total_frame_error /= len(test_data_list)
         total_sent_error /= len(test_data_list)
-
-        #scheduler.step(total_loss)
 
         if torch.cuda.is_available(): torch.cuda.synchronize()
         epoch_end_time = time.time()
@@ -260,9 +206,8 @@ for epoch in range(cfg.num_epochs):
         
         print(f"Epoch {epoch+1}/{cfg.num_epochs} | "
             f"Train Loss: {avg_train_loss:.4f} | "
-            f"Val Loss: {total_loss:.4f} | "
-            f"Sentence Accuracy: {1 - total_sent_error:.4f} | "
-            f"Frame Accuracy: {1 - total_frame_error:.4f} | "
+            f"Val Loss: {val_loss:.4f} | "
+            f"Accuracy: {1 - total_sent_error:.4f} | "
             #f"Eval Time: {eval_duration:.2f} seconds | "
             f"Epoch Time: {epoch_duration:.2f} seconds | ")
             #f"LR: {scheduler.get_last_lr()[0]:.8f}")
